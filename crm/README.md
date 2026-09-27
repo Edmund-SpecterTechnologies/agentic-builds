@@ -178,6 +178,6 @@ and the UI check fails on an already-used database.
 - The board scrolls sideways once a pipeline has more stages than fit on screen.
 - It's built for desktop screens. Below about 1,000 pixels wide, the sidebar leaves the tables little
   room, and on a phone it isn't usable.
-- The page loads up to 5,000 records of each type and draws 500 rows at a time (with "Show all"),
-  which keeps a 3,000-deal table under a quarter of a second to switch to. Counts and totals always
-  cover every loaded row.
+- The page loads up to 5,000 records of each type, newest first, and says so on screen when a list
+  reaches that limit. It draws 500 rows at a time (with "Show all"), which keeps a 3,000-deal table
+  under a quarter of a second to switch to. Counts and totals cover every loaded row.

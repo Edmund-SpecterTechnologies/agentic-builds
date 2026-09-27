@@ -235,6 +235,8 @@ const ago = d => d == null ? '—' : d === 0 ? 'Today' : d === 1 ? 'Yesterday' :
 const fmtDate = iso => iso ? new Date(iso.length === 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: iso.slice(0, 4) === String(new Date().getFullYear()) ? undefined : 'numeric' }) : '';
 const COLD_DAYS = 7;
 const ROW_CAP = 500;
+const LOAD_LIMIT = 5000;
+const fullNote = key => S.full?.[key] ? `<span class="late" style="font-size:12px">Only the newest ${LOAD_LIMIT.toLocaleString('en-US')} are loaded; there may be more.</span>` : '';
 const capped = rows => S.showAll ? rows : rows.slice(0, ROW_CAP);
 const moreRow = (rows, span) => rows.length > ROW_CAP && !S.showAll ? `<tr class="group"><td></td><td colspan="${span}">Showing ${ROW_CAP} of ${rows.length.toLocaleString('en-US')}. <a data-act="show-all" style="cursor:pointer;text-decoration:underline">Show all</a></td></tr>` : '';
 // Stage colours go into style attributes, so only a real hex colour is allowed through.
@@ -267,10 +269,12 @@ const S = {
 
 async function loadAll() {
   const [p, d, c, co, t, a, v] = await Promise.all([
-    api('/api/pipelines'), api('/api/opportunities?limit=5000'), api('/api/contacts?limit=5000'),
-    api('/api/companies?limit=5000'), api('/api/tasks?limit=5000'), api('/api/activities?limit=5000'), api('/api/saved-views'),
+    api('/api/pipelines'), api(`/api/opportunities?limit=${LOAD_LIMIT}`), api(`/api/contacts?limit=${LOAD_LIMIT}`),
+    api(`/api/companies?limit=${LOAD_LIMIT}`), api(`/api/tasks?limit=${LOAD_LIMIT}`), api(`/api/activities?limit=${LOAD_LIMIT}`), api('/api/saved-views'),
   ]);
   Object.assign(S, { pipelines: p, deals: d, contacts: c, companies: co, tasks: t, acts: a, views: v });
+  // A full page means there may be more on the server: say so on screen, never imply it's everything.
+  S.full = { deals: d.length >= LOAD_LIMIT, people: c.length >= LOAD_LIMIT, companies: co.length >= LOAD_LIMIT, tasks: t.length >= LOAD_LIMIT, activity: a.length >= LOAD_LIMIT };
   // Index once per load: last activity per deal, next open task per deal, and per-company rollups.
   S.lastActAt = new Map(); S.nextTaskOf = new Map(); S.peopleAt = new Map(); S.openValueAt = new Map();
   for (const x of a) if (x.opportunity_id && !(S.lastActAt.get(x.opportunity_id) >= x.created_at)) S.lastActAt.set(x.opportunity_id, x.created_at);
@@ -344,7 +348,7 @@ function renderDeals() {
     ${seg('deal-status', S.dealStatus, [['open', 'Open'], ['won', 'Won'], ['lost', 'Lost'], ['all', 'All']])}
     <input class="filter" data-input="q" placeholder="Filter deals…" value="${esc(S.q)}" />
     <span class="grow"></span>
-    ${S.dealTab === 'table' ? `<span class="muted" style="font-size:12px">Group by</span>${seg('group', S.group, [['stage', 'Stage'], ['none', 'None']])}` : ''}
+    ${fullNote('deals')}${S.dealTab === 'table' ? `<span class="muted" style="font-size:12px">Group by</span>${seg('group', S.group, [['stage', 'Stage'], ['none', 'None']])}` : ''}
   </div>`;
   if (S.dealTab === 'board') return renderBoard();
   const rows = dealRows(); const showStatus = S.dealStatus === 'all'; const cols = showStatus ? 8 : 7;
@@ -406,7 +410,7 @@ function peopleRows() {
 }
 function renderPeople() {
   header('Records / People', 'People', `<button class="btn" data-act="save-view">Save view</button><button class="btn primary" data-act="new" data-kind="person">+ New person</button>`);
-  $('#toolbar').innerHTML = `<div class="toolbar">${seg('people-status', S.peopleStatus, [['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']])}<input class="filter" data-input="q" placeholder="Filter people…" value="${esc(S.q)}" /></div>`;
+  $('#toolbar').innerHTML = `<div class="toolbar">${seg('people-status', S.peopleStatus, [['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']])}<input class="filter" data-input="q" placeholder="Filter people…" value="${esc(S.q)}" />${fullNote('people')}</div>`;
   const rows = peopleRows();
   $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="people" ${allSel(rows) ? 'checked' : ''}></th>${sortTh('people', 'name', 'Name', 'Aa')}${sortTh('people', 'email', 'Email', '@')}${sortTh('people', 'phone', 'Phone', '☏')}${sortTh('people', 'company_name', 'Company', '▢')}<th><span class="t">#</span>Tags</th>${sortTh('people', 'source', 'Source', '↳')}${sortTh('people', 'status', 'Status', '●')}${sortTh('people', 'created_at', 'Added', '◷')}</tr></thead>
     <tbody>${capped(rows).map(c => `<tr class="row ${S.selected.has(c.id) ? 'sel' : ''}"><td><input type="checkbox" data-check="${c.id}" ${S.selected.has(c.id) ? 'checked' : ''}></td>
@@ -422,7 +426,7 @@ function renderPeople() {
 }
 function renderCompanies() {
   header('Records / Companies', 'Companies', `<button class="btn primary" data-act="new" data-kind="company">+ New company</button>`);
-  $('#toolbar').innerHTML = `<div class="toolbar"><input class="filter" data-input="q" placeholder="Filter companies…" value="${esc(S.q)}" /></div>`;
+  $('#toolbar').innerHTML = `<div class="toolbar"><input class="filter" data-input="q" placeholder="Filter companies…" value="${esc(S.q)}" />${fullNote('companies')}</div>`;
   const q = S.q.toLowerCase();
   let rows = S.companies.filter(c => !q || [c.name, c.industry, c.website].join(' ').toLowerCase().includes(q));
   const openValue = c => S.openValueAt.get(c.id) || 0;
@@ -440,7 +444,7 @@ function renderCompanies() {
 /* ── Tasks / Activity ──────────────────────────────────────────────────────── */
 function renderTasks() {
   header('Records / Tasks', 'Tasks', `<button class="btn" data-act="save-view">Save view</button><button class="btn primary" data-act="new" data-kind="task">+ New task</button>`);
-  $('#toolbar').innerHTML = `<div class="toolbar">${seg('task-filter', S.taskFilter, [['open', 'Open'], ['done', 'Done'], ['all', 'All']])}</div>`;
+  $('#toolbar').innerHTML = `<div class="toolbar">${seg('task-filter', S.taskFilter, [['open', 'Open'], ['done', 'Done'], ['all', 'All']])}${fullNote('tasks')}</div>`;
   const t0 = todayISO();
   const rows = S.tasks.filter(t => S.taskFilter === 'all' || t.status === S.taskFilter).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'));
   const groups = [['Overdue', t => t.status === 'open' && t.due_date && t.due_date < t0], ['Today', t => t.status === 'open' && t.due_date === t0], ['Upcoming', t => t.status === 'open' && t.due_date > t0], ['No date', t => t.status === 'open' && !t.due_date], ['Done', t => t.status === 'done']];
@@ -463,7 +467,7 @@ function renderTasks() {
 }
 function renderActivity() {
   header('Records / Activity', 'Activity');
-  $('#toolbar').innerHTML = `<div class="toolbar">${seg('act-type', S.actType, [['', 'All'], ['call', 'Calls'], ['email', 'Email'], ['sms', 'SMS'], ['note', 'Notes']])}</div>`;
+  $('#toolbar').innerHTML = `<div class="toolbar">${seg('act-type', S.actType, [['', 'All'], ['call', 'Calls'], ['email', 'Email'], ['sms', 'SMS'], ['note', 'Notes']])}${fullNote('activity')}</div>`;
   const rows = S.acts.filter(a => !S.actType || a.type === S.actType).sort((a, b) => b.created_at.localeCompare(a.created_at));
   $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th><th><span class="t">¶</span>What</th><th><span class="t">▤</span>Type</th><th><span class="t">@</span>Person</th><th><span class="t">$</span>Deal</th><th><span class="t">◷</span>When</th></tr></thead>
     <tbody>${capped(rows).map(a => `<tr class="row"><td><button class="muted" title="Delete" data-act="del-act" data-id="${a.id}">✕</button></td>
@@ -764,7 +768,7 @@ async function onBlur(e) {
     if (!/^\d+(\.\d{1,2})?$/.test(raw)) { toast('Enter an amount like 1500 or 1,500.50', true); t.textContent = money(rec[field]); return; }
     val = parseFloat(raw);
   }
-  if (val === rec[field] || (field === 'monetary_value' && val === +rec[field])) { if (field === 'monetary_value') t.textContent = money(val); return; }
+  if (val === (rec[field] ?? '') || (field === 'monetary_value' && val === +rec[field])) { if (field === 'monetary_value') t.textContent = money(val); return; }
   if ((field === 'name' || field === 'title') && !val) { toast('That field can’t be empty', true); t.textContent = rec[field]; return; }
   try { await api(`${K.path}/${id}`, 'PUT', { [field]: val }); toast('Saved'); } catch (err) { /* toast shown */ }
   await refresh();
