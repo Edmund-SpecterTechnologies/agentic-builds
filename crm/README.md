@@ -35,7 +35,19 @@ something (stage colours, deals going cold, overdue tasks). Numbers are monospac
 
 ## Run it
 
-From the repo root (Python 3.11+):
+Needs Python 3.11 or newer. From a clone of this repo:
+
+- **Windows:** double-click `crm/launch.bat`
+- **macOS / Linux:** `sh crm/launch.sh`
+
+The first run creates a `.venv` at the repo root, installs the two dependencies, and asks
+**"Load fictional demo data? [Y/n]"**. Then it starts the server and opens http://localhost:8090.
+Later runs go straight to the server. To get the demo data back, stop the server, delete
+`crm/crm.db`, and run the launcher again.
+
+Opening `crm/index.html` directly won't work: the page needs its server, and says so if you try.
+
+<details><summary>Manual setup</summary>
 
 ```bash
 python -m venv .venv
@@ -45,7 +57,7 @@ python -m crm.seed_demo           # optional: loads fictional demo data
 python -m uvicorn crm.server:app --host 127.0.0.1 --port 8090
 ```
 
-Then open http://localhost:8090. On Windows, `crm/launch.bat` does the same thing.
+</details>
 
 The database is `crm/crm.db`. Set `CRM_DB_PATH` to use a different file, which is how the demo
 data can live somewhere disposable. To serve on a port other than 8090, set `CRM_PORT` to the same
@@ -105,6 +117,13 @@ exercised every endpoint and screen with the network blocked. That found, in the
 The previous interface (Alpine.js, Tailwind, Chart.js, and SortableJS from CDNs at floating
 versions) also ran its `init()` twice on every load and drew a chart after its canvas was gone. The
 Ledger rewrite replaced it and has no third-party scripts at all.
+
+A second review of the published repo found four more in the Ledger page, all fixed. When the
+server refused an action (say, deleting a stage that still had deals), the message showed but the
+error also escaped as an unhandled rejection. The board's Won filter still showed lost deals.
+"Select all" on a filtered list selected everyone. And stage colours reached a style attribute
+unchecked. It also found that the launcher never offered demo data, so a first run showed an
+empty CRM with no hint why.
 
 ## Tests
 

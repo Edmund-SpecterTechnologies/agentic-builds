@@ -83,7 +83,7 @@ def delete_pipeline(pipeline_id: str):
         if opp_count > 0:
             raise HTTPException(
                 status_code=409,
-                detail=f"Cannot delete: pipeline has {opp_count} linked opportunities",
+                detail=f"This pipeline still has {opp_count} deal{'s' if opp_count != 1 else ''}. Move or delete them first.",
             )
         conn.execute("DELETE FROM pipelines WHERE id = ?", (pipeline_id,))
 
@@ -157,7 +157,7 @@ def delete_stage(pipeline_id: str, stage_id: str):
         if opp_count > 0:
             raise HTTPException(
                 status_code=409,
-                detail=f"Cannot delete: stage has {opp_count} linked opportunities",
+                detail=f"This stage still has {opp_count} deal{'s' if opp_count != 1 else ''}. Move them to another stage first.",
             )
         conn.execute(
             "DELETE FROM pipeline_stages WHERE id = ? AND pipeline_id = ?",

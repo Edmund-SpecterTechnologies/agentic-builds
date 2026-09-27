@@ -232,6 +232,8 @@ const daysSince = iso => iso ? Math.max(0, Math.floor((Date.now() - new Date(iso
 const ago = d => d == null ? '—' : d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d + 'd ago';
 const fmtDate = iso => iso ? new Date(iso.length === 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: iso.slice(0, 4) === String(new Date().getFullYear()) ? undefined : 'numeric' }) : '';
 const COLD_DAYS = 7;
+// Stage colours go into style attributes, so only a real hex colour is allowed through.
+const color = c => /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#9ca3af';
 
 async function api(path, method = 'GET', body) {
   const opt = { method, headers: {} };
@@ -272,6 +274,7 @@ const lastTouch = d => {
   return daysSince(acts.length ? acts[acts.length - 1] : d.updated_at);
 };
 const isCold = d => d.status === 'open' && lastTouch(d) >= COLD_DAYS;
+const allSel = rows => rows.length > 0 && rows.every(r => S.selected.has(r.id));
 const nextTask = d => S.tasks.filter(t => t.opportunity_id === d.id && t.status === 'open').sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))[0];
 
 /* ── Shell ─────────────────────────────────────────────────────────────────── */
@@ -328,6 +331,7 @@ function renderDeals() {
   </div>`;
   if (S.dealTab === 'board') return renderBoard();
   const rows = dealRows(); const showStatus = S.dealStatus === 'all'; const cols = showStatus ? 8 : 7;
+  const emptyCrm = !S.deals.length && !S.contacts.length && !S.companies.length;
   if (!S.pipelines.length) { $('#body').innerHTML = `<div class="empty">No pipelines yet. Create one under <b>Pipelines</b>.</div>`; return; }
   const row = d => {
     const st = stageOf(d.stage_id) || {}; const nt = nextTask(d); const lt = lastTouch(d);
@@ -335,7 +339,7 @@ function renderDeals() {
     return `<tr class="row ${S.selected.has(d.id) ? 'sel' : ''}">
       <td><input type="checkbox" data-check="${d.id}" ${S.selected.has(d.id) ? 'checked' : ''}></td>
       <td><div class="cell-main"><span contenteditable spellcheck="false" data-edit="deal:${d.id}:name">${esc(d.name)}</span><button class="open" data-act="peek" data-kind="deal" data-id="${d.id}">Open ↗</button></div></td>
-      <td><span class="stage"><i style="background:${esc(st.color || '#9ca3af')}"></i><select class="inline" data-change="stage" data-id="${d.id}">${p.stages.map(s => `<option value="${s.id}" ${s.id === d.stage_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></span></td>
+      <td><span class="stage"><i style="background:${color(st.color)}"></i><select class="inline" data-change="stage" data-id="${d.id}">${p.stages.map(s => `<option value="${s.id}" ${s.id === d.stage_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></span></td>
       <td class="num"><span class="mono" contenteditable spellcheck="false" data-edit="deal:${d.id}:monetary_value">${money(d.monetary_value)}</span></td>
       <td>${d.contact_name ? `<span class="person"><span class="av">${esc(initials(d.contact_name))}</span>${esc(d.contact_name)}</span>` : '<span class="none">—</span>'}</td>
       <td class="muted">${esc(d.company_name || '')}</td>
@@ -349,36 +353,41 @@ function renderDeals() {
     for (const s of p.stages) {
       const g = rows.filter(r => r.stage_id === s.id);
       if (!g.length) continue;
-      body += `<tr class="group"><td></td><td colspan="${cols}"><span class="stage"><i style="background:${esc(s.color)}"></i></span><b>${esc(s.name)}</b><span class="mono muted">${g.length} · ${money(g.reduce((t, r) => t + +r.monetary_value, 0))}</span></td></tr>` + g.map(row).join('');
+      body += `<tr class="group"><td></td><td colspan="${cols}"><span class="stage"><i style="background:${color(s.color)}"></i></span><b>${esc(s.name)}</b><span class="mono muted">${g.length} · ${money(g.reduce((t, r) => t + +r.monetary_value, 0))}</span></td></tr>` + g.map(row).join('');
     }
   } else body = rows.map(row).join('');
   const total = rows.reduce((t, r) => t + +r.monetary_value, 0);
-  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="deals"></th>
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="deals" ${allSel(rows) ? 'checked' : ''}></th>
       ${sortTh('deals', 'name', 'Deal', 'Aa')}${sortTh('deals', 'stage_name', 'Stage', '◉')}${sortTh('deals', 'monetary_value', 'Value', '#', true)}
       ${sortTh('deals', 'contact_name', 'Contact', '@')}${sortTh('deals', 'company_name', 'Company', '▢')}<th><span class="t">→</span>Next step</th>${sortTh('deals', 'last', 'Last touch', '◷')}${showStatus ? '<th><span class="t">●</span>Status</th>' : ''}</tr></thead>
     <tbody>${body}</tbody>
     <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td></td><td class="num">Sum <b>${money(total)}</b></td><td>Avg <b>${money(total / (rows.length || 1))}</b></td><td colspan="${cols - 4}"></td></tr></tfoot></table>`
+    : emptyCrm ? `<div class="empty" style="line-height:1.7"><b>This CRM is empty.</b> Create a deal with <b>+ New deal</b>, or get fictional demo data:<br>
+        stop the server, delete <span class="mono">crm/crm.db</span>, and run the launcher again. It will offer the demo data.</div>`
     : `<div class="empty">No deals match. ${S.q || S.coldOnly || S.dealStatus !== 'open' ? 'Try clearing the filter.' : 'Create one with <b>+ New deal</b>.'}</div>`;
   renderBulk('deals');
 }
 function renderBoard() {
   const p = pipeline(); const q = S.q.toLowerCase();
-  const inView = d => d.pipeline_id === S.pipelineId && (S.dealStatus === 'all' || d.status === S.dealStatus || ['Won', 'Lost'].includes(stageOf(d.stage_id)?.name)) && (!q || [d.name, d.contact_name, d.company_name].join(' ').toLowerCase().includes(q)) && (!S.coldOnly || isCold(d));
+  const inView = d => d.pipeline_id === S.pipelineId && (S.dealStatus === 'all' || d.status === S.dealStatus || (S.dealStatus === 'open' && ['Won', 'Lost'].includes(stageOf(d.stage_id)?.name))) && (!q || [d.name, d.contact_name, d.company_name].join(' ').toLowerCase().includes(q)) && (!S.coldOnly || isCold(d));
   $('#body').innerHTML = `<div class="board">${p.stages.map(s => {
     const g = S.deals.filter(d => d.stage_id === s.id && inView(d));
-    return `<div class="col" data-drop="${s.id}"><h3><span class="stage"><i style="background:${esc(s.color)}"></i></span>${esc(s.name)}<span>${g.length} · ${money(g.reduce((t, r) => t + +r.monetary_value, 0))}</span></h3>
+    return `<div class="col" data-drop="${s.id}"><h3><span class="stage"><i style="background:${color(s.color)}"></i></span>${esc(s.name)}<span>${g.length} · ${money(g.reduce((t, r) => t + +r.monetary_value, 0))}</span></h3>
       ${g.map(d => `<div class="card" draggable="true" data-drag="${d.id}" data-act="peek" data-kind="deal" data-id="${d.id}"><div style="font-weight:500">${esc(d.name)}</div><div class="muted" style="font-size:12px">${esc(d.company_name || d.contact_name || '')}</div><div class="v"><b>${money(d.monetary_value)}</b><span class="${isCold(d) ? 'cold' : ''}">${ago(lastTouch(d))}</span></div></div>`).join('')}</div>`;
   }).join('')}</div>`;
 }
 
 /* ── People / Companies ────────────────────────────────────────────────────── */
+function peopleRows() {
+  const q = S.q.toLowerCase();
+  const rows = S.contacts.filter(c => (!S.peopleStatus || c.status === S.peopleStatus) && (!q || [contactName(c), c.email, c.phone, c.company_name].join(' ').toLowerCase().includes(q)));
+  return sortRows('people', rows, (c, k) => k === 'name' ? contactName(c).toLowerCase() : (c[k] || '').toString().toLowerCase());
+}
 function renderPeople() {
   header('Records / People', 'People', `<button class="btn" data-act="save-view">Save view</button><button class="btn primary" data-act="new" data-kind="person">+ New person</button>`);
   $('#toolbar').innerHTML = `<div class="toolbar">${seg('people-status', S.peopleStatus, [['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']])}<input class="filter" data-input="q" placeholder="Filter people…" value="${esc(S.q)}" /></div>`;
-  const q = S.q.toLowerCase();
-  let rows = S.contacts.filter(c => (!S.peopleStatus || c.status === S.peopleStatus) && (!q || [contactName(c), c.email, c.phone, c.company_name].join(' ').toLowerCase().includes(q)));
-  rows = sortRows('people', rows, (c, k) => k === 'name' ? contactName(c).toLowerCase() : (c[k] || '').toString().toLowerCase());
-  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="people"></th>${sortTh('people', 'name', 'Name', 'Aa')}${sortTh('people', 'email', 'Email', '@')}${sortTh('people', 'phone', 'Phone', '☏')}${sortTh('people', 'company_name', 'Company', '▢')}<th><span class="t">#</span>Tags</th>${sortTh('people', 'source', 'Source', '↳')}${sortTh('people', 'status', 'Status', '●')}${sortTh('people', 'created_at', 'Added', '◷')}</tr></thead>
+  const rows = peopleRows();
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="people" ${allSel(rows) ? 'checked' : ''}></th>${sortTh('people', 'name', 'Name', 'Aa')}${sortTh('people', 'email', 'Email', '@')}${sortTh('people', 'phone', 'Phone', '☏')}${sortTh('people', 'company_name', 'Company', '▢')}<th><span class="t">#</span>Tags</th>${sortTh('people', 'source', 'Source', '↳')}${sortTh('people', 'status', 'Status', '●')}${sortTh('people', 'created_at', 'Added', '◷')}</tr></thead>
     <tbody>${rows.map(c => `<tr class="row ${S.selected.has(c.id) ? 'sel' : ''}"><td><input type="checkbox" data-check="${c.id}" ${S.selected.has(c.id) ? 'checked' : ''}></td>
       <td><div class="cell-main"><span class="person"><span class="av">${esc(initials(contactName(c)))}</span>${esc(contactName(c))}</span><button class="open" data-act="peek" data-kind="person" data-id="${c.id}">Open ↗</button></div></td>
       <td><span contenteditable spellcheck="false" data-edit="person:${c.id}:email">${esc(c.email || '')}</span></td>
@@ -469,7 +478,7 @@ function renderSettings() {
   header('Workspace / Pipelines', 'Pipelines', `<button class="btn primary" data-act="new-pipeline">+ New pipeline</button>`);
   $('#body').innerHTML = S.pipelines.map(p => `<div class="pipe">
       <div class="pipe-head"><input value="${esc(p.name)}" data-change="pipe-name" data-id="${p.id}" /><span class="muted mono">${S.deals.filter(d => d.pipeline_id === p.id).length} deals</span><span class="grow" style="flex:1"></span><button class="btn sm danger" data-act="del-pipeline" data-id="${p.id}">Delete pipeline</button></div>
-      ${p.stages.map((s, i) => `<div class="stage-row"><input type="color" value="${esc(s.color)}" data-change="stage-color" data-pid="${p.id}" data-id="${s.id}" title="Stage colour">
+      ${p.stages.map((s, i) => `<div class="stage-row"><input type="color" value="${color(s.color)}" data-change="stage-color" data-pid="${p.id}" data-id="${s.id}" title="Stage colour">
         <input type="text" value="${esc(s.name)}" data-change="stage-name" data-pid="${p.id}" data-id="${s.id}">
         <span class="mono muted">${S.deals.filter(d => d.stage_id === s.id).length} deals</span>
         <span><button class="btn sm" data-act="move-stage" data-pid="${p.id}" data-i="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>↑</button> <button class="btn sm" data-act="move-stage" data-pid="${p.id}" data-i="${i}" data-dir="1" ${i === p.stages.length - 1 ? 'disabled' : ''}>↓</button> <button class="btn sm danger" data-act="del-stage" data-pid="${p.id}" data-id="${s.id}">✕</button></span></div>`).join('')}
@@ -604,10 +613,14 @@ $('#pal-q').addEventListener('keydown', e => {
 });
 
 /* ── Events (delegated) ────────────────────────────────────────────────────── */
+// api() has already shown the error as a toast; swallow it here so it doesn't
+// surface a second time as an unhandled promise rejection.
+const quiet = err => { if (!(err instanceof Error)) console.error(err); };
 function go(view, extra = {}) { Object.assign(S, { view, q: '', coldOnly: false, selected: new Set() }, extra); if (view !== 'deals') S.coldOnly = false; closePeek(); render(); }
 let tt; function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast on' + (err ? ' err' : ''); clearTimeout(tt); tt = setTimeout(() => t.className = 'toast', 2600); }
 
-document.addEventListener('click', async e => {
+document.addEventListener('click', e => onClick(e).catch(quiet));
+async function onClick(e) {
   const th = e.target.closest('th[data-sort]');
   if (th) { const [ent, key] = th.dataset.sort.split(':'); const s = S.sort[ent]; S.sort[ent] = s[0] === key ? [key, -s[1]] : [key, 1]; render(); return; }
   const el = e.target.closest('[data-act]'); if (!el) return;
@@ -669,14 +682,15 @@ document.addEventListener('click', async e => {
     [stages[i], stages[j]] = [stages[j], stages[i]];
     await api(`/api/pipelines/${d.pid}/stages/reorder`, 'POST', stages.map((s, k) => ({ id: s.id, position: k }))); await refresh();
   }
-});
+}
 
-document.addEventListener('submit', e => { if (e.target.id === 'peek-form') { e.preventDefault(); savePeek(); } });
+document.addEventListener('submit', e => { if (e.target.id === 'peek-form') { e.preventDefault(); savePeek().catch(quiet); } });
 
-document.addEventListener('change', async e => {
+document.addEventListener('change', e => onChange(e).catch(quiet));
+async function onChange(e) {
   const t = e.target, d = t.dataset;
   if (d.check) { t.checked ? S.selected.add(d.check) : S.selected.delete(d.check); render(); }
-  else if (d.checkall) { const ids = (d.checkall === 'deals' ? dealRows() : S.contacts).map(r => r.id); ids.forEach(id => t.checked ? S.selected.add(id) : S.selected.delete(id)); render(); }
+  else if (d.checkall) { const ids = (d.checkall === 'deals' ? dealRows() : peopleRows()).map(r => r.id); ids.forEach(id => t.checked ? S.selected.add(id) : S.selected.delete(id)); render(); }
   else if (d.toggleTask) { await api(`/api/tasks/${d.toggleTask}/complete`, 'PATCH'); await refresh(); }
   else if (d.change === 'pipeline') { S.pipelineId = t.value; render(); }
   else if (d.change === 'stage') { await api(`/api/opportunities/${d.id}/stage`, 'PATCH', { stage_id: t.value }); await refresh(); }
@@ -689,23 +703,25 @@ document.addEventListener('change', async e => {
   else if (d.change === 'pipe-name' && t.value.trim()) { await api('/api/pipelines/' + d.id, 'PUT', { name: t.value.trim() }); await refresh(); }
   else if (d.change === 'stage-name' && t.value.trim()) { await api(`/api/pipelines/${d.pid}/stages/${d.id}`, 'PUT', { name: t.value.trim() }); await refresh(); }
   else if (d.change === 'stage-color') { await api(`/api/pipelines/${d.pid}/stages/${d.id}`, 'PUT', { color: t.value }); await refresh(); }
-});
+}
 document.addEventListener('input', e => {
   if (e.target.dataset.input === 'q') {
     S.q = e.target.value; const pos = e.target.selectionStart; render();
     const f = document.querySelector('[data-input=q]'); if (f) { f.focus(); f.setSelectionRange(pos, pos); }
   }
 });
-document.addEventListener('keydown', async e => {
+document.addEventListener('keydown', e => onKey(e).catch(quiet));
+async function onKey(e) {
   const t = e.target;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPal(); return; }
   if (e.key === 'Escape') { if ($('#pal').classList.contains('on')) closePal(); else closePeek(); return; }
   if (t.dataset && t.dataset.addStage && e.key === 'Enter' && t.value.trim()) { await api(`/api/pipelines/${t.dataset.addStage}/stages`, 'POST', { name: t.value.trim() }); await refresh(); return; }
   if (t.isContentEditable && e.key === 'Enter') { e.preventDefault(); t.blur(); }
   if (t.isContentEditable && e.key === 'Escape') { t.blur(); }
-});
+}
 /* Inline edits save on blur */
-document.addEventListener('focusout', async e => {
+document.addEventListener('focusout', e => onBlur(e).catch(quiet));
+async function onBlur(e) {
   const t = e.target; if (!t.isContentEditable || !t.dataset.edit) return;
   const [kind, id, field] = t.dataset.edit.split(':'); const K = KIND[kind]; const rec = K.list().find(x => x.id === id); if (!rec) return;
   let val = t.textContent.trim();
@@ -714,21 +730,31 @@ document.addEventListener('focusout', async e => {
   if ((field === 'name' || field === 'title') && !val) { toast('That field can’t be empty', true); t.textContent = rec[field]; return; }
   try { await api(`${K.path}/${id}`, 'PUT', { [field]: val }); toast('Saved'); } catch (err) { /* toast shown */ }
   await refresh();
-});
+}
 /* Board drag and drop */
 document.addEventListener('dragstart', e => { const c = e.target.closest?.('[data-drag]'); if (c) { c.classList.add('dragging'); e.dataTransfer.setData('text/plain', c.dataset.drag); e.dataTransfer.effectAllowed = 'move'; } });
 document.addEventListener('dragend', e => { const c = e.target.closest?.('[data-drag]'); if (c) setTimeout(() => c.classList.remove('dragging'), 0); });
 document.addEventListener('dragover', e => { const col = e.target.closest('[data-drop]'); if (col) { e.preventDefault(); document.querySelectorAll('.col.over').forEach(x => x !== col && x.classList.remove('over')); col.classList.add('over'); } });
 document.addEventListener('dragleave', e => { const col = e.target.closest('[data-drop]'); if (col && !col.contains(e.relatedTarget)) col.classList.remove('over'); });
-document.addEventListener('drop', async e => {
+document.addEventListener('drop', e => onDrop(e).catch(quiet));
+async function onDrop(e) {
   const col = e.target.closest('[data-drop]'); if (!col) return; e.preventDefault(); col.classList.remove('over');
   const id = e.dataTransfer.getData('text/plain'); const deal = S.deals.find(x => x.id === id);
   if (!deal || deal.stage_id === col.dataset.drop) return;
   const updated = await api(`/api/opportunities/${id}/stage`, 'PATCH', { stage_id: col.dataset.drop });
   toast(`Moved to ${updated.stage_name}${updated.status !== 'open' ? ' · marked ' + updated.status : ''}`); await refresh();
-});
+}
 
-loadAll().then(render).catch(err => { $('#body').innerHTML = `<div class="empty">Couldn’t reach the CRM server: ${esc(err.message)}</div>`; });
+loadAll().then(render).catch(err => {
+  const fromFile = location.protocol === 'file:';
+  $('#head').innerHTML = `<div class="head"><div class="crumb">Specter CRM</div><div class="title-row"><h1>${fromFile ? 'This page needs its server' : 'Can’t reach the CRM server'}</h1></div></div>`;
+  $('#body').innerHTML = `<div class="empty" style="max-width:640px;line-height:1.7">
+    ${fromFile ? 'You opened <b>index.html</b> directly, so there’s no server to load data from.' : `The server didn’t answer (${esc(err.message)}).`}
+    Start it from the repo root, then open <b>http://localhost:8090</b>:<br><br>
+    <b>Windows:</b> double-click <span class="mono">crm/launch.bat</span><br>
+    <b>macOS / Linux:</b> <span class="mono">sh crm/launch.sh</span><br><br>
+    Both offer to load fictional demo data the first time.</div>`;
+});
 </script>
 </body>
 </html>
