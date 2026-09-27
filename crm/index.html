@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Specter CRM</title>
+<style>
+  /* ── Ledger ────────────────────────────────────────────────────────────────
+     The CRM as a spreadsheet you can trust. One ink, hairline grid, colour only
+     where it carries meaning (stage colours, "going cold", overdue). Numbers are
+     mono and right-aligned. No third-party scripts: plain JS against /api. */
+  :root {
+    --paper: #ffffff; --wash: #f7f7f5; --hover: #f2f2ef; --sel: #eef2ff;
+    --rule: #e8e8e4; --rule-strong: #d6d6d0;
+    --ink: #171716; --ink-2: #4a4a46; --ink-3: #85857f; --ink-4: #b4b4ae;
+    --focus: #1d4ed8; --cold: #c2410c; --ok: #15803d; --bad: #b91c1c;
+    --sans: ui-sans-serif, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font: 13px/1.45 var(--sans); color: var(--ink); background: var(--paper); -webkit-font-smoothing: antialiased; overflow: hidden; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  .mono { font-family: var(--mono); font-feature-settings: "tnum"; }
+  .muted { color: var(--ink-3); }
+  .app { display: grid; grid-template-columns: 232px 1fr; height: 100vh; }
+
+  /* Sidebar */
+  aside { background: var(--wash); border-right: 1px solid var(--rule); display: flex; flex-direction: column; padding: 14px 10px; gap: 20px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 2px 8px; }
+  .brand-mark { width: 22px; height: 22px; border: 1.5px solid var(--ink); display: grid; grid-template: 1fr 1fr / 1fr 1fr; }
+  .brand-mark i { border-right: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); }
+  .brand-mark i:nth-child(2n) { border-right: 0; } .brand-mark i:nth-child(n+3) { border-bottom: 0; }
+  .brand b { font-weight: 600; letter-spacing: -0.01em; }
+  .search-btn { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--rule-strong); background: var(--paper); border-radius: 6px; padding: 6px 9px; color: var(--ink-3); width: 100%; text-align: left; }
+  .search-btn:hover { border-color: var(--ink-3); }
+  .kbd { font: 11px var(--mono); color: var(--ink-3); border: 1px solid var(--rule-strong); border-radius: 4px; padding: 0 5px; background: var(--wash); }
+  .nav-label { font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); padding: 0 8px 6px; display: flex; align-items: center; gap: 8px; }
+  .nav-label::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  .nav a { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; border-radius: 5px; color: var(--ink-2); cursor: pointer; }
+  .nav a:hover { background: var(--hover); }
+  .nav a.on { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1px var(--rule-strong); font-weight: 500; }
+  .nav a .n { font: 11px var(--mono); color: var(--ink-3); }
+  .nav a .lbl { display: flex; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 8px; flex: 0 0 auto; }
+  .nav .x { opacity: 0; color: var(--ink-3); font-size: 12px; padding: 0 2px; }
+  .nav a:hover .x { opacity: 1; }
+  .nav .x:hover { color: var(--bad); }
+  .side-foot { margin-top: auto; padding: 8px; font: 11px var(--mono); color: var(--ink-3); }
+
+  /* Main */
+  main { display: flex; flex-direction: column; min-width: 0; position: relative; overflow: hidden; }
+  .head { padding: 18px 24px 0; border-bottom: 1px solid var(--rule); }
+  .crumb { font: 11px var(--mono); color: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; }
+  .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 4px; padding-bottom: 14px; }
+  .head.tabbed .title-row { padding-bottom: 0; }
+  h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; }
+  .btn { border: 1px solid var(--rule-strong); border-radius: 6px; padding: 6px 11px; background: var(--paper); font-weight: 500; white-space: nowrap; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.primary:hover { background: #333; }
+  .btn.danger { color: var(--bad); }
+  .btn.sm { padding: 3px 8px; font-size: 12px; }
+  .tabs { display: flex; gap: 18px; margin-top: 12px; }
+  .tab { padding: 8px 0 9px; color: var(--ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500; }
+  .tab.on { color: var(--ink); border-color: var(--ink); }
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 24px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+  .toolbar .grow { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 6px; overflow: hidden; }
+  .seg button { padding: 4px 10px; font-size: 12px; color: var(--ink-3); }
+  .seg button + button { border-left: 1px solid var(--rule); }
+  .seg button.on { background: var(--ink); color: #fff; }
+  .filter { border: 1px solid var(--rule-strong); border-radius: 999px; padding: 4px 11px; width: 210px; outline: none; background: var(--paper); }
+  .filter:focus, .pick:focus { border-color: var(--focus); }
+  .pick { border: 1px solid var(--rule-strong); border-radius: 6px; padding: 4px 8px; background: var(--paper); outline: none; }
+  .body { flex: 1; overflow: auto; }
+
+  /* Grid */
+  table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 980px; }
+  .grid th, .grid td { border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); padding: 0 12px; height: 38px; text-align: left; white-space: nowrap; }
+  .grid th { position: sticky; top: 0; background: var(--paper); z-index: 2; font: 500 11px var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; height: 34px; user-select: none; }
+  .grid th[data-sort] { cursor: pointer; }
+  .grid th[data-sort]:hover { color: var(--ink); }
+  .grid th .t { font: 10px var(--mono); color: var(--ink-4); margin-right: 6px; text-transform: none; letter-spacing: 0; }
+  .grid .num { text-align: right; }
+  .grid td:first-child, .grid th:first-child { position: sticky; left: 0; background: inherit; z-index: 1; width: 40px; min-width: 40px; max-width: 40px; text-align: center; padding: 0; }
+  .grid th:first-child { z-index: 3; background: var(--paper); }
+  .grid td:nth-child(2), .grid th:nth-child(2) { position: sticky; left: 40px; z-index: 1; background: inherit; box-shadow: 1px 0 0 var(--rule-strong); max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+  .grid th:nth-child(2) { z-index: 3; background: var(--paper); }
+  .grid tr.row { background: var(--paper); }
+  .grid tr.row:hover { background: var(--wash); }
+  .grid tr.row.sel { background: var(--sel); }
+  .grid tr.group td { background: var(--wash); height: 32px; font-size: 12px; color: var(--ink-2); }
+  .grid tr.group b { font-weight: 600; color: var(--ink); margin: 0 8px 0 6px; }
+  .grid tfoot td { position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--rule-strong); height: 36px; font: 12px var(--mono); color: var(--ink-3); z-index: 2; }
+  .grid tfoot b { color: var(--ink); font-weight: 500; }
+  input[type=checkbox] { accent-color: var(--ink); width: 14px; height: 14px; cursor: pointer; }
+  .cell-main { display: flex; align-items: center; gap: 8px; }
+  [contenteditable] { outline: none; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; min-width: 20px; display: inline-block; }
+  [contenteditable]:hover { box-shadow: inset 0 0 0 1px var(--rule-strong); }
+  [contenteditable]:focus { box-shadow: 0 0 0 2px var(--focus); background: #fff; }
+  .open { opacity: 0; font: 11px var(--mono); color: var(--ink-3); border: 1px solid var(--rule-strong); border-radius: 4px; padding: 0 6px; margin-left: auto; background: var(--paper); }
+  tr.row:hover .open { opacity: 1; }
+  .stage { display: inline-flex; align-items: center; gap: 7px; }
+  .stage i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+  select.inline { border: 0; background: transparent; cursor: pointer; padding: 4px 0; appearance: none; outline: none; }
+  select.inline:hover { text-decoration: underline dotted; }
+  .person { display: inline-flex; align-items: center; gap: 7px; }
+  .av { width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: #fff; display: inline-grid; place-items: center; font: 600 9px var(--sans); flex: 0 0 auto; }
+  .cold { color: var(--cold); font-weight: 500; }
+  .late { color: var(--bad); font-weight: 500; }
+  .none { color: var(--ink-4); font-style: italic; }
+  .pill { font: 11px var(--mono); border: 1px solid var(--rule-strong); border-radius: 999px; padding: 1px 7px; color: var(--ink-2); background: var(--wash); }
+  .pill.won { color: var(--ok); border-color: #bbe5c8; background: #f0fbf3; }
+  .pill.lost { color: var(--bad); border-color: #f3c4c4; background: #fdf3f3; }
+  .empty { padding: 48px 24px; color: var(--ink-3); }
+  .bulk { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff; border-radius: 8px; padding: 8px 10px 8px 16px; display: flex; gap: 10px; align-items: center; box-shadow: 0 12px 30px rgba(0,0,0,.25); z-index: 5; }
+  .bulk select, .bulk button { background: #2b2b29; color: #fff; border: 1px solid #444; border-radius: 5px; padding: 4px 8px; }
+
+  /* Board */
+  .board { display: flex; gap: 12px; padding: 16px 24px; align-items: flex-start; min-height: 100%; }
+  .col { width: 250px; flex: 0 0 250px; border-radius: 8px; padding: 2px; }
+  .col.over { background: var(--sel); }
+  .col h3 { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 6px 4px 8px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
+  .col h3 span { margin-left: auto; font: 11px var(--mono); color: var(--ink-3); }
+  .card { border: 1px solid var(--rule); border-radius: 6px; padding: 10px; margin-bottom: 8px; background: var(--paper); cursor: grab; }
+  .card:hover { border-color: var(--rule-strong); }
+  .card.dragging { opacity: .4; }
+  .card .v { font: 12px var(--mono); margin-top: 6px; display: flex; justify-content: space-between; color: var(--ink-3); }
+  .card .v b { color: var(--ink); font-weight: 500; }
+
+  /* Peek panel */
+  .peek { position: absolute; top: 0; right: 0; bottom: 0; width: 460px; background: var(--paper); border-left: 1px solid var(--rule-strong); transform: translateX(100%); visibility: hidden; transition: transform .28s cubic-bezier(.16,1,.3,1); display: flex; flex-direction: column; z-index: 10; }
+  .peek.on { transform: none; visibility: visible; box-shadow: -24px 0 48px -24px rgba(0,0,0,.18); }
+  .peek-head { padding: 14px 20px; border-bottom: 1px solid var(--rule); }
+  .peek-head .r1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .peek h2 { font-size: 19px; letter-spacing: -0.02em; margin-top: 6px; word-break: break-word; }
+  .peek-body { overflow: auto; padding: 4px 20px 24px; flex: 1; }
+  .fld { display: grid; grid-template-columns: 116px 1fr; border-bottom: 1px solid var(--rule); align-items: center; }
+  .fld label { font: 11px var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; padding: 10px 0; }
+  .fld input, .fld select, .fld textarea { border: 0; outline: none; padding: 9px 6px; background: transparent; border-radius: 4px; width: 100%; }
+  .fld input:focus, .fld select:focus, .fld textarea:focus { box-shadow: inset 0 0 0 2px var(--focus); }
+  .fld textarea { resize: vertical; min-height: 60px; }
+  .fld input[type=color] { width: 36px; height: 26px; padding: 0; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin: 14px 0 4px; }
+  .actions .grow { flex: 1; }
+  .sec { font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); margin: 24px 0 10px; display: flex; gap: 8px; align-items: center; }
+  .sec::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  .rel { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--rule); cursor: pointer; }
+  .rel:hover { background: var(--wash); }
+  .tl { position: relative; padding-left: 18px; }
+  .tl::before { content: ""; position: absolute; left: 4px; top: 6px; bottom: 6px; width: 1px; background: var(--rule-strong); }
+  .tl-item { position: relative; padding: 0 0 14px; }
+  .tl-item::before { content: ""; position: absolute; left: -18px; top: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--paper); border: 1.5px solid var(--ink); }
+  .tl-item .m { font: 11px var(--mono); color: var(--ink-3); display: flex; justify-content: space-between; }
+  .tl-item .m button { color: var(--ink-4); } .tl-item .m button:hover { color: var(--bad); }
+  .composer { border: 1px solid var(--rule-strong); border-radius: 6px; padding: 8px; margin-top: 8px; }
+  .composer:focus-within { border-color: var(--focus); }
+  .composer textarea { width: 100%; border: 0; outline: none; resize: vertical; min-height: 44px; }
+  .composer .row2 { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+
+  /* Reports + settings */
+  .kpis { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 1px solid var(--rule); }
+  .kpi { padding: 18px 24px; border-right: 1px solid var(--rule); }
+  .kpi:last-child { border-right: 0; }
+  .kpi b { display: block; font: 500 24px var(--mono); letter-spacing: -0.02em; }
+  .kpi span { font: 11px var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; }
+  .panel { padding: 18px 24px 24px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .bars div { display: grid; grid-template-columns: 140px 1fr 70px; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+  .bars i { height: 8px; background: var(--ink); display: block; border-radius: 1px; min-width: 1px; }
+  .bars b { font: 500 12px var(--mono); text-align: right; }
+  .pipe { padding: 18px 24px; border-bottom: 1px solid var(--rule); }
+  .pipe-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .pipe-head input { font-size: 17px; font-weight: 600; border: 0; outline: none; padding: 2px 4px; border-radius: 4px; }
+  .pipe-head input:focus { box-shadow: 0 0 0 2px var(--focus); }
+  .stage-row { display: grid; grid-template-columns: 40px 1fr 90px 120px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--rule); max-width: 640px; }
+  .stage-row input[type=text] { border: 0; outline: none; padding: 4px 6px; border-radius: 4px; }
+  .stage-row input[type=text]:focus { box-shadow: 0 0 0 2px var(--focus); }
+  .stage-row input[type=color] { width: 28px; height: 22px; border: 0; background: none; padding: 0; }
+
+  /* Palette + toast */
+  .veil { position: fixed; inset: 0; background: rgba(23,23,22,.28); display: none; z-index: 30; }
+  .veil.on { display: block; }
+  .pal { position: fixed; top: 12vh; left: 50%; transform: translateX(-50%); width: 560px; background: var(--paper); border: 1px solid var(--rule-strong); border-radius: 10px; box-shadow: 0 30px 70px rgba(0,0,0,.2); z-index: 31; display: none; overflow: hidden; }
+  .pal.on { display: block; }
+  .pal input { width: 100%; border: 0; border-bottom: 1px solid var(--rule); padding: 14px 16px; font-size: 15px; outline: none; }
+  .pal-list { max-height: 360px; overflow: auto; padding: 6px; }
+  .pal-sec { font: 500 10.5px var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .12em; padding: 8px 10px 4px; }
+  .pal-it { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+  .pal-it.on { background: var(--sel); }
+  .pal-it .sub { margin-left: auto; color: var(--ink-3); font: 12px var(--mono); }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translate(-50%, 160%); opacity: 0; pointer-events: none; background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 8px; transition: transform .25s cubic-bezier(.16,1,.3,1); z-index: 40; max-width: 70vw; }
+  .toast.on { transform: translate(-50%, 0); opacity: 1; }
+  .toast.err { background: var(--bad); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><b>Specter CRM</b></div>
+    <button class="search-btn" data-act="palette"><span>Search records…</span><span class="kbd">Ctrl K</span></button>
+    <div><div class="nav-label">Records</div><nav class="nav" id="nav-records"></nav></div>
+    <div><div class="nav-label">Views</div><nav class="nav" id="nav-views"></nav></div>
+    <div><div class="nav-label">Workspace</div><nav class="nav" id="nav-work"></nav></div>
+    <div class="side-foot">Local · single user</div>
+  </aside>
+  <main>
+    <div id="head"></div>
+    <div id="toolbar"></div>
+    <div class="body" id="body"></div>
+    <div id="bulk"></div>
+    <section class="peek" id="peek">
+      <div class="peek-head"><div class="r1"><span class="crumb" id="peek-kind"></span><button class="btn sm" data-act="close-peek">Close ⎋</button></div><h2 id="peek-title"></h2></div>
+      <div class="peek-body" id="peek-body"></div>
+    </section>
+  </main>
+</div>
+<div class="veil" id="veil" data-act="close-pal"></div>
+<div class="pal" id="pal"><input id="pal-q" placeholder="Search people, companies, and deals, or type a command…" autocomplete="off" /><div class="pal-list" id="pal-list"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── Data layer ────────────────────────────────────────────────────────────── */
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = n => '$' + Math.round(+n || 0).toLocaleString('en-US');
+const initials = n => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
+const todayISO = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const daysSince = iso => iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)) : null;
+const ago = d => d == null ? '—' : d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d + 'd ago';
+const fmtDate = iso => iso ? new Date(iso.length === 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: iso.slice(0, 4) === String(new Date().getFullYear()) ? undefined : 'numeric' }) : '';
+const COLD_DAYS = 7;
+
+async function api(path, method = 'GET', body) {
+  const opt = { method, headers: {} };
+  if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  if (r.status === 204) return null;
+  const data = await r.json().catch(() => null);
+  if (!r.ok) {
+    const d = data && data.detail;
+    const msg = typeof d === 'string' ? d : Array.isArray(d) ? d.map(x => `${(x.loc || []).slice(-1)[0]}: ${x.msg}`).join('; ') : r.statusText;
+    toast(msg, true); throw new Error(msg);
+  }
+  return data;
+}
+
+const S = {
+  view: 'deals', pipelines: [], pipelineId: null, deals: [], contacts: [], companies: [], tasks: [], acts: [], views: [],
+  dealStatus: 'open', dealTab: 'table', group: 'stage', coldOnly: false, q: '', peopleStatus: '', taskFilter: 'open', actType: '',
+  sort: { deals: ['monetary_value', -1], people: ['created_at', -1], companies: ['name', 1] },
+  selected: new Set(), peek: null, saving: false,
+};
+
+async function loadAll() {
+  const [p, d, c, co, t, a, v] = await Promise.all([
+    api('/api/pipelines'), api('/api/opportunities?limit=5000'), api('/api/contacts?limit=5000'),
+    api('/api/companies?limit=5000'), api('/api/tasks?limit=5000'), api('/api/activities?limit=5000'), api('/api/saved-views'),
+  ]);
+  Object.assign(S, { pipelines: p, deals: d, contacts: c, companies: co, tasks: t, acts: a, views: v });
+  if (!S.pipelines.find(x => x.id === S.pipelineId)) S.pipelineId = S.pipelines[0]?.id || null;
+}
+async function refresh() { await loadAll(); render(); if (S.peek && S.peek.id) renderPeek(); }
+
+const pipeline = () => S.pipelines.find(p => p.id === S.pipelineId) || { stages: [] };
+const stageOf = id => S.pipelines.flatMap(p => p.stages).find(s => s.id === id);
+const contactName = c => [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '(no name)';
+const lastTouch = d => {
+  const acts = S.acts.filter(a => a.opportunity_id === d.id).map(a => a.created_at).sort();
+  return daysSince(acts.length ? acts[acts.length - 1] : d.updated_at);
+};
+const isCold = d => d.status === 'open' && lastTouch(d) >= COLD_DAYS;
+const nextTask = d => S.tasks.filter(t => t.opportunity_id === d.id && t.status === 'open').sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))[0];
+
+/* ── Shell ─────────────────────────────────────────────────────────────────── */
+function renderNav() {
+  const open = S.deals.filter(d => d.status === 'open');
+  const openTasks = S.tasks.filter(t => t.status === 'open');
+  const recs = [['deals', 'Deals', open.length], ['people', 'People', S.contacts.length], ['companies', 'Companies', S.companies.length], ['tasks', 'Tasks', openTasks.length], ['activity', 'Activity', S.acts.length]];
+  $('#nav-records').innerHTML = recs.map(([k, l, n]) => `<a data-act="nav" data-v="${k}" class="${S.view === k && !S.coldOnly ? 'on' : ''}"><span class="lbl">${l}</span><span class="n">${n}</span></a>`).join('');
+  const cold = open.filter(isCold).length;
+  const saved = S.views.map(v => `<a data-act="apply-view" data-id="${v.id}"><span class="lbl"><span class="dot" style="background:var(--ink-3)"></span>${esc(v.name)}</span><span class="x" data-act="del-view" data-id="${v.id}" title="Delete view">✕</span></a>`).join('');
+  $('#nav-views').innerHTML = `<a data-act="cold" class="${S.coldOnly ? 'on' : ''}"><span class="lbl"><span class="dot" style="background:var(--cold)"></span>Going cold</span><span class="n">${cold}</span></a>${saved}`;
+  $('#nav-work').innerHTML = [['reports', 'Reports'], ['settings', 'Pipelines']].map(([k, l]) => `<a data-act="nav" data-v="${k}" class="${S.view === k ? 'on' : ''}"><span class="lbl">${l}</span></a>`).join('');
+}
+
+function header(crumb, title, buttons = '', tabs = '') {
+  $('#head').innerHTML = `<div class="head ${tabs ? 'tabbed' : ''}"><div class="crumb">${crumb}</div><div class="title-row"><h1>${esc(title)}</h1><div style="display:flex;gap:8px">${buttons}</div></div>${tabs}</div>`;
+}
+const seg = (act, cur, opts) => `<div class="seg">${opts.map(([v, l]) => `<button data-act="${act}" data-val="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+const sortTh = (entity, key, label, icon, num) => {
+  const [k, dir] = S.sort[entity];
+  return `<th data-sort="${entity}:${key}" class="${num ? 'num' : ''}"><span class="t">${icon}</span>${label}${k === key ? (dir > 0 ? ' ↑' : ' ↓') : ''}</th>`;
+};
+function sortRows(entity, rows, get) {
+  const [k, dir] = S.sort[entity];
+  return rows.sort((a, b) => { const x = get(a, k), y = get(b, k); return (x > y ? 1 : x < y ? -1 : 0) * dir; });
+}
+
+function render() {
+  renderNav();
+  $('#toolbar').innerHTML = ''; $('#bulk').innerHTML = '';
+  ({ deals: renderDeals, people: renderPeople, companies: renderCompanies, tasks: renderTasks, activity: renderActivity, reports: renderReports, settings: renderSettings })[S.view]();
+}
+
+/* ── Deals ─────────────────────────────────────────────────────────────────── */
+function dealRows() {
+  const q = S.q.toLowerCase();
+  let rows = S.deals.filter(d => d.pipeline_id === S.pipelineId);
+  if (S.dealStatus !== 'all') rows = rows.filter(d => d.status === S.dealStatus);
+  if (S.coldOnly) rows = rows.filter(isCold);
+  if (q) rows = rows.filter(d => [d.name, d.contact_name, d.company_name].join(' ').toLowerCase().includes(q));
+  return sortRows('deals', rows, (d, k) => k === 'last' ? lastTouch(d) : k === 'monetary_value' ? +d.monetary_value : (d[k] || '').toString().toLowerCase());
+}
+function renderDeals() {
+  const p = pipeline();
+  header(`Records / Deals${S.coldOnly ? ' / Going cold' : ''}`, S.coldOnly ? 'Going cold' : p.name || 'Deals',
+    `<button class="btn" data-act="save-view">Save view</button><button class="btn primary" data-act="new" data-kind="deal">+ New deal</button>`,
+    `<div class="tabs"><button class="tab ${S.dealTab === 'table' ? 'on' : ''}" data-act="deal-tab" data-val="table">Table</button><button class="tab ${S.dealTab === 'board' ? 'on' : ''}" data-act="deal-tab" data-val="board">Board</button></div>`);
+  $('#toolbar').innerHTML = `<div class="toolbar">
+    ${S.pipelines.length > 1 ? `<select class="pick" data-change="pipeline">${S.pipelines.map(x => `<option value="${x.id}" ${x.id === S.pipelineId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : ''}
+    ${seg('deal-status', S.dealStatus, [['open', 'Open'], ['won', 'Won'], ['lost', 'Lost'], ['all', 'All']])}
+    <input class="filter" data-input="q" placeholder="Filter deals…" value="${esc(S.q)}" />
+    <span class="grow"></span>
+    ${S.dealTab === 'table' ? `<span class="muted" style="font-size:12px">Group by</span>${seg('group', S.group, [['stage', 'Stage'], ['none', 'None']])}` : ''}
+  </div>`;
+  if (S.dealTab === 'board') return renderBoard();
+  const rows = dealRows(); const showStatus = S.dealStatus === 'all'; const cols = showStatus ? 8 : 7;
+  if (!S.pipelines.length) { $('#body').innerHTML = `<div class="empty">No pipelines yet. Create one under <b>Pipelines</b>.</div>`; return; }
+  const row = d => {
+    const st = stageOf(d.stage_id) || {}; const nt = nextTask(d); const lt = lastTouch(d);
+    const ntHtml = nt ? `<span class="${nt.due_date && nt.due_date < todayISO() ? 'late' : ''}">${esc(nt.title)}${nt.due_date ? ' · ' + fmtDate(nt.due_date) : ''}</span>` : `<span class="none">No next step</span>`;
+    return `<tr class="row ${S.selected.has(d.id) ? 'sel' : ''}">
+      <td><input type="checkbox" data-check="${d.id}" ${S.selected.has(d.id) ? 'checked' : ''}></td>
+      <td><div class="cell-main"><span contenteditable spellcheck="false" data-edit="deal:${d.id}:name">${esc(d.name)}</span><button class="open" data-act="peek" data-kind="deal" data-id="${d.id}">Open ↗</button></div></td>
+      <td><span class="stage"><i style="background:${esc(st.color || '#9ca3af')}"></i><select class="inline" data-change="stage" data-id="${d.id}">${p.stages.map(s => `<option value="${s.id}" ${s.id === d.stage_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></span></td>
+      <td class="num"><span class="mono" contenteditable spellcheck="false" data-edit="deal:${d.id}:monetary_value">${money(d.monetary_value)}</span></td>
+      <td>${d.contact_name ? `<span class="person"><span class="av">${esc(initials(d.contact_name))}</span>${esc(d.contact_name)}</span>` : '<span class="none">—</span>'}</td>
+      <td class="muted">${esc(d.company_name || '')}</td>
+      <td>${ntHtml}</td>
+      <td class="mono ${isCold(d) ? 'cold' : 'muted'}">${ago(lt)}</td>
+      ${showStatus ? `<td>${d.status === 'open' ? '<span class="pill">open</span>' : `<span class="pill ${d.status}">${d.status}</span>`}</td>` : ''}
+    </tr>`;
+  };
+  let body = '';
+  if (S.group === 'stage') {
+    for (const s of p.stages) {
+      const g = rows.filter(r => r.stage_id === s.id);
+      if (!g.length) continue;
+      body += `<tr class="group"><td></td><td colspan="${cols}"><span class="stage"><i style="background:${esc(s.color)}"></i></span><b>${esc(s.name)}</b><span class="mono muted">${g.length} · ${money(g.reduce((t, r) => t + +r.monetary_value, 0))}</span></td></tr>` + g.map(row).join('');
+    }
+  } else body = rows.map(row).join('');
+  const total = rows.reduce((t, r) => t + +r.monetary_value, 0);
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="deals"></th>
+      ${sortTh('deals', 'name', 'Deal', 'Aa')}${sortTh('deals', 'stage_name', 'Stage', '◉')}${sortTh('deals', 'monetary_value', 'Value', '#', true)}
+      ${sortTh('deals', 'contact_name', 'Contact', '@')}${sortTh('deals', 'company_name', 'Company', '▢')}<th><span class="t">→</span>Next step</th>${sortTh('deals', 'last', 'Last touch', '◷')}${showStatus ? '<th><span class="t">●</span>Status</th>' : ''}</tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td></td><td class="num">Sum <b>${money(total)}</b></td><td>Avg <b>${money(total / (rows.length || 1))}</b></td><td colspan="${cols - 4}"></td></tr></tfoot></table>`
+    : `<div class="empty">No deals match. ${S.q || S.coldOnly || S.dealStatus !== 'open' ? 'Try clearing the filter.' : 'Create one with <b>+ New deal</b>.'}</div>`;
+  renderBulk('deals');
+}
+function renderBoard() {
+  const p = pipeline(); const q = S.q.toLowerCase();
+  const inView = d => d.pipeline_id === S.pipelineId && (S.dealStatus === 'all' || d.status === S.dealStatus || ['Won', 'Lost'].includes(stageOf(d.stage_id)?.name)) && (!q || [d.name, d.contact_name, d.company_name].join(' ').toLowerCase().includes(q)) && (!S.coldOnly || isCold(d));
+  $('#body').innerHTML = `<div class="board">${p.stages.map(s => {
+    const g = S.deals.filter(d => d.stage_id === s.id && inView(d));
+    return `<div class="col" data-drop="${s.id}"><h3><span class="stage"><i style="background:${esc(s.color)}"></i></span>${esc(s.name)}<span>${g.length} · ${money(g.reduce((t, r) => t + +r.monetary_value, 0))}</span></h3>
+      ${g.map(d => `<div class="card" draggable="true" data-drag="${d.id}" data-act="peek" data-kind="deal" data-id="${d.id}"><div style="font-weight:500">${esc(d.name)}</div><div class="muted" style="font-size:12px">${esc(d.company_name || d.contact_name || '')}</div><div class="v"><b>${money(d.monetary_value)}</b><span class="${isCold(d) ? 'cold' : ''}">${ago(lastTouch(d))}</span></div></div>`).join('')}</div>`;
+  }).join('')}</div>`;
+}
+
+/* ── People / Companies ────────────────────────────────────────────────────── */
+function renderPeople() {
+  header('Records / People', 'People', `<button class="btn" data-act="save-view">Save view</button><button class="btn primary" data-act="new" data-kind="person">+ New person</button>`);
+  $('#toolbar').innerHTML = `<div class="toolbar">${seg('people-status', S.peopleStatus, [['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']])}<input class="filter" data-input="q" placeholder="Filter people…" value="${esc(S.q)}" /></div>`;
+  const q = S.q.toLowerCase();
+  let rows = S.contacts.filter(c => (!S.peopleStatus || c.status === S.peopleStatus) && (!q || [contactName(c), c.email, c.phone, c.company_name].join(' ').toLowerCase().includes(q)));
+  rows = sortRows('people', rows, (c, k) => k === 'name' ? contactName(c).toLowerCase() : (c[k] || '').toString().toLowerCase());
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="people"></th>${sortTh('people', 'name', 'Name', 'Aa')}${sortTh('people', 'email', 'Email', '@')}${sortTh('people', 'phone', 'Phone', '☏')}${sortTh('people', 'company_name', 'Company', '▢')}<th><span class="t">#</span>Tags</th>${sortTh('people', 'source', 'Source', '↳')}${sortTh('people', 'status', 'Status', '●')}${sortTh('people', 'created_at', 'Added', '◷')}</tr></thead>
+    <tbody>${rows.map(c => `<tr class="row ${S.selected.has(c.id) ? 'sel' : ''}"><td><input type="checkbox" data-check="${c.id}" ${S.selected.has(c.id) ? 'checked' : ''}></td>
+      <td><div class="cell-main"><span class="person"><span class="av">${esc(initials(contactName(c)))}</span>${esc(contactName(c))}</span><button class="open" data-act="peek" data-kind="person" data-id="${c.id}">Open ↗</button></div></td>
+      <td><span contenteditable spellcheck="false" data-edit="person:${c.id}:email">${esc(c.email || '')}</span></td>
+      <td class="mono"><span contenteditable spellcheck="false" data-edit="person:${c.id}:phone">${esc(c.phone || '')}</span></td>
+      <td class="muted">${esc(c.company_name || '')}</td>
+      <td>${(c.tags || []).map(t => `<span class="pill">${esc(t)}</span>`).join(' ')}</td>
+      <td class="muted">${esc(c.source || '')}</td><td>${esc(c.status || '')}</td><td class="mono muted">${fmtDate(c.created_at)}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td colspan="7"></td></tr></tfoot></table>`
+    : `<div class="empty">No people match. Add one with <b>+ New person</b>.</div>`;
+  renderBulk('people');
+}
+function renderCompanies() {
+  header('Records / Companies', 'Companies', `<button class="btn primary" data-act="new" data-kind="company">+ New company</button>`);
+  $('#toolbar').innerHTML = `<div class="toolbar"><input class="filter" data-input="q" placeholder="Filter companies…" value="${esc(S.q)}" /></div>`;
+  const q = S.q.toLowerCase();
+  let rows = S.companies.filter(c => !q || [c.name, c.industry, c.website].join(' ').toLowerCase().includes(q));
+  const openValue = c => S.deals.filter(d => d.company_id === c.id && d.status === 'open').reduce((t, d) => t + +d.monetary_value, 0);
+  rows = sortRows('companies', rows, (c, k) => k === 'people' ? S.contacts.filter(x => x.company_id === c.id).length : k === 'open' ? openValue(c) : (c[k] || '').toString().toLowerCase());
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th>${sortTh('companies', 'name', 'Company', 'Aa')}${sortTh('companies', 'industry', 'Industry', '▤')}${sortTh('companies', 'people', 'People', '@', true)}${sortTh('companies', 'open', 'Open pipeline', '#', true)}<th><span class="t">↗</span>Website</th>${sortTh('companies', 'phone', 'Phone', '☏')}</tr></thead>
+    <tbody>${rows.map(c => `<tr class="row"><td></td>
+      <td><div class="cell-main"><span contenteditable spellcheck="false" data-edit="company:${c.id}:name" style="font-weight:500">${esc(c.name)}</span><button class="open" data-act="peek" data-kind="company" data-id="${c.id}">Open ↗</button></div></td>
+      <td><span contenteditable spellcheck="false" data-edit="company:${c.id}:industry">${esc(c.industry || '')}</span></td>
+      <td class="num mono">${S.contacts.filter(x => x.company_id === c.id).length}</td><td class="num mono">${money(openValue(c))}</td>
+      <td class="muted">${esc((c.website || '').replace(/^https?:\/\//, ''))}</td><td class="mono muted">${esc(c.phone || '')}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td colspan="5"></td></tr></tfoot></table>`
+    : `<div class="empty">No companies match. Add one with <b>+ New company</b>.</div>`;
+}
+
+/* ── Tasks / Activity ──────────────────────────────────────────────────────── */
+function renderTasks() {
+  header('Records / Tasks', 'Tasks', `<button class="btn" data-act="save-view">Save view</button><button class="btn primary" data-act="new" data-kind="task">+ New task</button>`);
+  $('#toolbar').innerHTML = `<div class="toolbar">${seg('task-filter', S.taskFilter, [['open', 'Open'], ['done', 'Done'], ['all', 'All']])}</div>`;
+  const t0 = todayISO();
+  const rows = S.tasks.filter(t => S.taskFilter === 'all' || t.status === S.taskFilter).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'));
+  const groups = [['Overdue', t => t.status === 'open' && t.due_date && t.due_date < t0], ['Today', t => t.status === 'open' && t.due_date === t0], ['Upcoming', t => t.status === 'open' && t.due_date > t0], ['No date', t => t.status === 'open' && !t.due_date], ['Done', t => t.status === 'done']];
+  const line = t => `<tr class="row"><td><input type="checkbox" data-toggle-task="${t.id}" ${t.status === 'done' ? 'checked' : ''}></td>
+    <td><div class="cell-main"><span contenteditable spellcheck="false" data-edit="task:${t.id}:title" style="${t.status === 'done' ? 'text-decoration:line-through;color:var(--ink-3)' : ''}">${esc(t.title)}</span><button class="open" data-act="peek" data-kind="task" data-id="${t.id}">Open ↗</button></div></td>
+    <td><input type="date" class="pick" data-change="task-due" data-id="${t.id}" value="${esc(t.due_date || '')}"></td>
+    <td>${t.opportunity_name ? `<a class="muted" data-act="peek" data-kind="deal" data-id="${t.opportunity_id}" style="cursor:pointer">${esc(t.opportunity_name)}</a>` : ''}</td>
+    <td>${t.contact_name ? `<span class="person"><span class="av">${esc(initials(t.contact_name))}</span>${esc(t.contact_name)}</span>` : ''}</td>
+    <td class="muted" style="max-width:280px;overflow:hidden;text-overflow:ellipsis">${esc(t.notes || '')}</td></tr>`;
+  let body = '';
+  for (const [name, fn] of groups) {
+    const g = rows.filter(fn); if (!g.length) continue;
+    body += `<tr class="group"><td></td><td colspan="5"><b class="${name === 'Overdue' ? 'late' : ''}">${name}</b><span class="mono muted">${g.length}</span></td></tr>` + g.map(line).join('');
+  }
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th>✓</th><th><span class="t">Aa</span>Task</th><th><span class="t">◷</span>Due</th><th><span class="t">$</span>Deal</th><th><span class="t">@</span>Person</th><th><span class="t">¶</span>Notes</th></tr></thead><tbody>${body}</tbody></table>`
+    : `<div class="empty">${S.taskFilter === 'open' ? 'Nothing open. ' : ''}Add one with <b>+ New task</b>.</div>`;
+}
+function renderActivity() {
+  header('Records / Activity', 'Activity');
+  $('#toolbar').innerHTML = `<div class="toolbar">${seg('act-type', S.actType, [['', 'All'], ['call', 'Calls'], ['email', 'Email'], ['sms', 'SMS'], ['note', 'Notes']])}</div>`;
+  const rows = S.acts.filter(a => !S.actType || a.type === S.actType).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th><th><span class="t">¶</span>What</th><th><span class="t">▤</span>Type</th><th><span class="t">@</span>Person</th><th><span class="t">$</span>Deal</th><th><span class="t">◷</span>When</th></tr></thead>
+    <tbody>${rows.map(a => `<tr class="row"><td><button class="muted" title="Delete" data-act="del-act" data-id="${a.id}">✕</button></td>
+      <td style="white-space:normal;max-width:420px">${esc(a.body || '')}</td><td><span class="pill">${esc(a.type)}</span></td>
+      <td>${a.contact_id ? `<a data-act="peek" data-kind="person" data-id="${a.contact_id}" style="cursor:pointer">${esc(a.contact_name || '')}</a>` : ''}</td>
+      <td>${a.opportunity_id ? `<a class="muted" data-act="peek" data-kind="deal" data-id="${a.opportunity_id}" style="cursor:pointer">${esc(a.opportunity_name || '')}</a>` : ''}</td>
+      <td class="mono muted">${fmtDate(a.created_at)} · ${ago(daysSince(a.created_at))}</td></tr>`).join('')}</tbody></table>`
+    : `<div class="empty">No activity yet. Log calls, emails, and notes from a deal or a person.</div>`;
+}
+
+/* ── Reports / Pipelines settings ──────────────────────────────────────────── */
+async function renderReports() {
+  header('Workspace / Reports', 'Reports');
+  $('#body').innerHTML = `<div class="empty">Loading…</div>`;
+  const [dash, rep] = await Promise.all([api('/api/dashboard'), api('/api/reports')]);
+  if (S.view !== 'reports') return;
+  const closed = S.deals.filter(d => d.status !== 'open'); const won = closed.filter(d => d.status === 'won');
+  const bars = (items, fmt = v => v) => { const max = Math.max(1, ...items.map(i => i[1])); return `<div class="bars">${items.map(([l, v]) => `<div><span>${esc(l || 'Unknown')}</span><i style="width:${v / max * 100}%"></i><b>${fmt(v)}</b></div>`).join('') || '<p class="muted">No data yet.</p>'}</div>`; };
+  $('#body').innerHTML = `<div class="kpis">
+      <div class="kpi"><b>${money(dash.pipeline_value)}</b><span>Open pipeline</span></div>
+      <div class="kpi"><b>${dash.open_opportunities}</b><span>Open deals</span></div>
+      <div class="kpi"><b>${dash.won_count}</b><span>Won</span></div>
+      <div class="kpi"><b>${closed.length ? Math.round(won.length / closed.length * 100) + '%' : '—'}</b><span>Win rate (closed)</span></div>
+      <div class="kpi"><b>${rep.tasks_summary.overdue}</b><span>Overdue tasks</span></div>
+      <div class="kpi"><b>${rep.recent_activity_count}</b><span>Activities, 30 days</span></div></div>
+    <div class="panels">
+      ${dash.pipelines.map(p => `<div class="panel"><div class="sec" style="margin-top:0">${esc(p.pipeline_name)} · open deals by stage</div>${bars(p.stages.map(s => [s.name, s.count]))}</div>
+        <div class="panel"><div class="sec" style="margin-top:0">${esc(p.pipeline_name)} · open value by stage</div>${bars(p.stages.map(s => [s.name, s.value]), money)}</div>`).join('')}
+      <div class="panel"><div class="sec" style="margin-top:0">Activity by type</div>${bars(rep.activity_by_type.map(r => [r.type, r.count]))}</div>
+      <div class="panel"><div class="sec" style="margin-top:0">People by source</div>${bars(rep.contacts_by_source.map(r => [r.source, r.count]))}</div>
+      <div class="panel"><div class="sec" style="margin-top:0">Activity by month</div>${bars(rep.monthly_activities.map(r => [r.month, r.count]))}</div>
+      <div class="panel"><div class="sec" style="margin-top:0">Tasks</div>${bars([['Open', rep.tasks_summary.open], ['Overdue', rep.tasks_summary.overdue], ['Done', rep.tasks_summary.done]])}</div>
+    </div>`;
+}
+function renderSettings() {
+  header('Workspace / Pipelines', 'Pipelines', `<button class="btn primary" data-act="new-pipeline">+ New pipeline</button>`);
+  $('#body').innerHTML = S.pipelines.map(p => `<div class="pipe">
+      <div class="pipe-head"><input value="${esc(p.name)}" data-change="pipe-name" data-id="${p.id}" /><span class="muted mono">${S.deals.filter(d => d.pipeline_id === p.id).length} deals</span><span class="grow" style="flex:1"></span><button class="btn sm danger" data-act="del-pipeline" data-id="${p.id}">Delete pipeline</button></div>
+      ${p.stages.map((s, i) => `<div class="stage-row"><input type="color" value="${esc(s.color)}" data-change="stage-color" data-pid="${p.id}" data-id="${s.id}" title="Stage colour">
+        <input type="text" value="${esc(s.name)}" data-change="stage-name" data-pid="${p.id}" data-id="${s.id}">
+        <span class="mono muted">${S.deals.filter(d => d.stage_id === s.id).length} deals</span>
+        <span><button class="btn sm" data-act="move-stage" data-pid="${p.id}" data-i="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>↑</button> <button class="btn sm" data-act="move-stage" data-pid="${p.id}" data-i="${i}" data-dir="1" ${i === p.stages.length - 1 ? 'disabled' : ''}>↓</button> <button class="btn sm danger" data-act="del-stage" data-pid="${p.id}" data-id="${s.id}">✕</button></span></div>`).join('')}
+      <div class="stage-row"><span></span><input type="text" placeholder="+ Add a stage and press Enter" data-add-stage="${p.id}"></div>
+    </div>`).join('') || `<div class="empty">No pipelines. Create one with <b>+ New pipeline</b>.</div>`;
+}
+
+function renderBulk(entity) {
+  const n = S.selected.size;
+  if (!n) { $('#bulk').innerHTML = ''; return; }
+  $('#bulk').innerHTML = `<div class="bulk"><span>${n} selected</span>
+    ${entity === 'deals' ? `<select data-change="bulk-stage"><option value="">Move to stage…</option>${pipeline().stages.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>` : ''}
+    <button data-act="bulk-delete" data-entity="${entity}">Delete</button><button data-act="bulk-clear">Clear</button></div>`;
+}
+
+/* ── Peek: record panel for view, edit, and create ─────────────────────────── */
+const opt = (list, cur, label, blank = '— None —') => `<option value="">${blank}</option>` + list.map(x => `<option value="${x.id}" ${x.id === cur ? 'selected' : ''}>${esc(label(x))}</option>`).join('');
+function fields(kind, r) {
+  const f = (name, label, input) => `<div class="fld"><label>${label}</label>${input}</div>`;
+  const txt = (name, label, type = 'text') => f(name, label, `<input name="${name}" type="${type}" value="${esc(r[name] ?? '')}" ${type === 'number' ? 'step="any"' : ''}>`);
+  const area = (name, label) => f(name, label, `<textarea name="${name}">${esc(r[name] ?? '')}</textarea>`);
+  if (kind === 'deal') {
+    const pid = r.pipeline_id || S.pipelineId; const p = S.pipelines.find(x => x.id === pid) || { stages: [] };
+    return txt('name', 'Name') + txt('monetary_value', 'Value', 'number') +
+      f('pipeline_id', 'Pipeline', `<select name="pipeline_id" data-change="peek-pipeline">${S.pipelines.map(x => `<option value="${x.id}" ${x.id === pid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>`) +
+      f('stage_id', 'Stage', `<select name="stage_id">${p.stages.map(s => `<option value="${s.id}" ${s.id === r.stage_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`) +
+      f('status', 'Status', `<select name="status">${['open', 'won', 'lost'].map(s => `<option ${s === (r.status || 'open') ? 'selected' : ''}>${s}</option>`).join('')}</select>`) +
+      f('contact_id', 'Contact', `<select name="contact_id">${opt(S.contacts, r.contact_id, contactName)}</select>`) +
+      f('company_id', 'Company', `<select name="company_id">${opt(S.companies, r.company_id, c => c.name)}</select>`) +
+      txt('close_date', 'Close date', 'date') + area('notes', 'Notes');
+  }
+  if (kind === 'person') return txt('first_name', 'First name') + txt('last_name', 'Last name') + txt('email', 'Email', 'email') + txt('phone', 'Phone') +
+    f('company_id', 'Company', `<select name="company_id">${opt(S.companies, r.company_id, c => c.name)}</select>`) +
+    f('tags', 'Tags', `<input name="tags" value="${esc((r.tags || []).join(', '))}" placeholder="comma, separated">`) + txt('source', 'Source') +
+    f('status', 'Status', `<select name="status">${['active', 'inactive'].map(s => `<option ${s === (r.status || 'active') ? 'selected' : ''}>${s}</option>`).join('')}</select>`) + area('notes', 'Notes');
+  if (kind === 'company') return txt('name', 'Name') + txt('industry', 'Industry') + txt('website', 'Website') + txt('phone', 'Phone') + txt('email', 'Email', 'email') + txt('address', 'Address') + area('notes', 'Notes');
+  if (kind === 'task') return txt('title', 'Title') + txt('due_date', 'Due', 'date') +
+    f('opportunity_id', 'Deal', `<select name="opportunity_id">${opt(S.deals, r.opportunity_id, d => d.name)}</select>`) +
+    f('contact_id', 'Person', `<select name="contact_id">${opt(S.contacts, r.contact_id, contactName)}</select>`) + area('notes', 'Notes');
+}
+const KIND = {
+  deal: { list: () => S.deals, path: '/api/opportunities', title: r => r.name, label: 'Deal' },
+  person: { list: () => S.contacts, path: '/api/contacts', title: contactName, label: 'Person' },
+  company: { list: () => S.companies, path: '/api/companies', title: r => r.name, label: 'Company' },
+  task: { list: () => S.tasks, path: '/api/tasks', title: r => r.title, label: 'Task' },
+};
+function openPeek(kind, id, preset = {}) { S.peek = { kind, id, preset }; renderPeek(); $('#peek').classList.add('on'); }
+function closePeek() { S.peek = null; $('#peek').classList.remove('on'); }
+function renderPeek() {
+  const { kind, id, preset } = S.peek; const K = KIND[kind];
+  const r = id ? K.list().find(x => x.id === id) : { ...preset };
+  if (!r) { closePeek(); return; }
+  $('#peek-kind').textContent = id ? K.label : 'New ' + K.label.toLowerCase();
+  $('#peek-title').textContent = id ? K.title(r) : 'Untitled';
+  let rel = '';
+  if (id && kind === 'deal') {
+    const tasks = S.tasks.filter(t => t.opportunity_id === id);
+    rel += `<div class="sec">Tasks</div>${tasks.map(t => `<div class="rel" data-act="peek" data-kind="task" data-id="${t.id}"><span style="${t.status === 'done' ? 'text-decoration:line-through' : ''}">${esc(t.title)}</span><span class="mono muted">${fmtDate(t.due_date)}</span></div>`).join('')}
+      <button class="btn sm" style="margin-top:8px" data-act="new" data-kind="task" data-preset-deal="${id}" data-preset-contact="${r.contact_id || ''}">+ Add task</button>`;
+    rel += timeline(S.acts.filter(a => a.opportunity_id === id), { opportunity_id: id, contact_id: r.contact_id });
+  }
+  if (id && kind === 'person') {
+    rel += `<div class="sec">Deals</div>${S.deals.filter(d => d.contact_id === id).map(d => `<div class="rel" data-act="peek" data-kind="deal" data-id="${d.id}"><span>${esc(d.name)}</span><span class="mono muted">${money(d.monetary_value)} · ${esc(d.stage_name || '')}</span></div>`).join('') || '<p class="muted">None yet.</p>'}
+      <button class="btn sm" style="margin-top:8px" data-act="new" data-kind="deal" data-preset-contact="${id}" data-preset-company="${r.company_id || ''}">+ Add deal</button>`;
+    rel += timeline(S.acts.filter(a => a.contact_id === id), { contact_id: id });
+  }
+  if (id && kind === 'company') {
+    rel += `<div class="sec">People</div>${S.contacts.filter(c => c.company_id === id).map(c => `<div class="rel" data-act="peek" data-kind="person" data-id="${c.id}"><span>${esc(contactName(c))}</span><span class="muted">${esc(c.email || '')}</span></div>`).join('') || '<p class="muted">None yet.</p>'}
+      <div class="sec">Deals</div>${S.deals.filter(d => d.company_id === id).map(d => `<div class="rel" data-act="peek" data-kind="deal" data-id="${d.id}"><span>${esc(d.name)}</span><span class="mono muted">${money(d.monetary_value)} · ${esc(d.stage_name || '')}</span></div>`).join('') || '<p class="muted">None yet.</p>'}`;
+  }
+  $('#peek-body').innerHTML = `<form id="peek-form">${fields(kind, r)}
+    <div class="actions">${id ? `<button type="button" class="btn danger" data-act="delete" data-kind="${kind}" data-id="${id}">Delete</button>` : ''}<span class="grow"></span>
+    <button type="button" class="btn" data-act="close-peek">Cancel</button><button type="submit" class="btn primary">${id ? 'Save changes' : 'Create'}</button></div></form>${rel}`;
+  if (!id) setTimeout(() => $('#peek-form input')?.focus(), 50);
+}
+function timeline(acts, link) {
+  acts = [...acts].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return `<div class="sec">Timeline</div>
+    <div class="composer"><textarea id="act-body" placeholder="Log a call, email, text, or note…"></textarea>
+      <div class="row2">${seg('act-kind', S.actKind || 'call', [['call', 'Call'], ['email', 'Email'], ['sms', 'SMS'], ['note', 'Note']])}<button class="btn sm primary" data-act="log" data-link='${esc(JSON.stringify(link))}'>Log</button></div></div>
+    <div class="tl" style="margin-top:14px">${acts.map(a => `<div class="tl-item"><div class="m"><span>${esc(a.type.toUpperCase())} · ${fmtDate(a.created_at)} · ${ago(daysSince(a.created_at))}</span><button data-act="del-act" data-id="${a.id}" title="Delete">✕</button></div><div>${esc(a.body || '')}</div></div>`).join('') || '<p class="muted">Nothing logged yet.</p>'}</div>`;
+}
+async function savePeek() {
+  if (S.saving) return; S.saving = true;
+  try {
+    const { kind, id } = S.peek; const K = KIND[kind];
+    const data = Object.fromEntries(new FormData($('#peek-form')).entries());
+    if (kind === 'deal') {
+      data.monetary_value = parseFloat(data.monetary_value) || 0;
+      if (!data.name?.trim()) return toast('A deal needs a name', true);
+      // Let the server keep status in step with Won/Lost stages: only send status
+      // when the user actually changed it, and start new deals in Won/Lost closed.
+      const rec = id && S.deals.find(x => x.id === id);
+      const stageName = (stageOf(data.stage_id)?.name || '').toLowerCase();
+      if (rec && data.status === rec.status && data.stage_id !== rec.stage_id) delete data.status;
+      if (!rec && data.status === 'open' && ['won', 'lost'].includes(stageName)) data.status = stageName;
+    }
+    if (kind === 'person') data.tags = (data.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    if (kind === 'company' && !data.name?.trim()) return toast('A company needs a name', true);
+    if (kind === 'task' && !data.title?.trim()) return toast('A task needs a title', true);
+    const saved = id ? await api(`${K.path}/${id}`, 'PUT', data) : await api(K.path, 'POST', data);
+    toast(id ? 'Saved' : `${K.label} created`);
+    S.peek = { kind, id: saved.id, preset: {} };
+    await refresh();
+  } finally { S.saving = false; }
+}
+
+/* ── Palette (Ctrl/Cmd+K) ──────────────────────────────────────────────────── */
+let palItems = [], palIdx = 0, palTimer;
+function openPal() { $('#veil').classList.add('on'); $('#pal').classList.add('on'); $('#pal-q').value = ''; runPal(''); setTimeout(() => $('#pal-q').focus(), 10); }
+function closePal() { $('#veil').classList.remove('on'); $('#pal').classList.remove('on'); }
+async function runPal(q) {
+  const cmds = [['+', 'New deal', 'command', () => openPeek('deal', null, { pipeline_id: S.pipelineId, stage_id: pipeline().stages[0]?.id })], ['+', 'New person', 'command', () => openPeek('person')], ['+', 'New company', 'command', () => openPeek('company')], ['+', 'New task', 'command', () => openPeek('task')],
+    ['◷', 'Show deals going cold', 'view', () => go('deals', { coldOnly: true })], ['▤', 'Reports', 'view', () => go('reports')]].filter(c => !q || c[1].toLowerCase().includes(q.toLowerCase()));
+  let recs = [];
+  if (q.trim().length >= 2) {
+    const r = await api('/api/search?q=' + encodeURIComponent(q.trim()) + '&limit=6');
+    recs = [...r.contacts.map(c => ['@', contactName(c), c.company_name || 'person', () => { go('people'); openPeek('person', c.id); }]),
+      ...r.companies.map(c => ['▢', c.name, c.industry || 'company', () => { go('companies'); openPeek('company', c.id); }]),
+      ...r.opportunities.map(o => ['$', o.name, (o.contact_name || '') + ' · ' + money(o.monetary_value), () => { go('deals'); openPeek('deal', o.id); }])];
+  }
+  palItems = [...recs, ...cmds]; palIdx = 0; drawPal();
+}
+function drawPal() {
+  $('#pal-list').innerHTML = palItems.length ? palItems.map((it, i) => `<div class="pal-it ${i === palIdx ? 'on' : ''}" data-act="pal-run" data-i="${i}"><span class="mono muted">${it[0]}</span>${esc(it[1])}<span class="sub">${esc(it[2])}</span></div>`).join('') : '<div class="pal-sec">No matches</div>';
+}
+$('#pal-q').addEventListener('input', e => { clearTimeout(palTimer); palTimer = setTimeout(() => runPal(e.target.value), 150); });
+$('#pal-q').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { palIdx = Math.min(palIdx + 1, palItems.length - 1); drawPal(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { palIdx = Math.max(palIdx - 1, 0); drawPal(); e.preventDefault(); }
+  if (e.key === 'Enter' && palItems[palIdx]) { const it = palItems[palIdx]; closePal(); it[3](); }
+});
+
+/* ── Events (delegated) ────────────────────────────────────────────────────── */
+function go(view, extra = {}) { Object.assign(S, { view, q: '', coldOnly: false, selected: new Set() }, extra); if (view !== 'deals') S.coldOnly = false; closePeek(); render(); }
+let tt; function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast on' + (err ? ' err' : ''); clearTimeout(tt); tt = setTimeout(() => t.className = 'toast', 2600); }
+
+document.addEventListener('click', async e => {
+  const th = e.target.closest('th[data-sort]');
+  if (th) { const [ent, key] = th.dataset.sort.split(':'); const s = S.sort[ent]; S.sort[ent] = s[0] === key ? [key, -s[1]] : [key, 1]; render(); return; }
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act, d = el.dataset;
+  if (a === 'nav') go(d.v);
+  else if (a === 'cold') go('deals', { coldOnly: true, dealStatus: 'open' });
+  else if (a === 'palette') openPal();
+  else if (a === 'close-pal') closePal();
+  else if (a === 'pal-run') { const it = palItems[+d.i]; closePal(); it && it[3](); }
+  else if (a === 'deal-tab') { S.dealTab = d.val; render(); }
+  else if (a === 'deal-status') { S.dealStatus = d.val; render(); }
+  else if (a === 'group') { S.group = d.val; render(); }
+  else if (a === 'people-status') { S.peopleStatus = d.val; render(); }
+  else if (a === 'task-filter') { S.taskFilter = d.val; render(); }
+  else if (a === 'act-type') { S.actType = d.val; render(); }
+  else if (a === 'act-kind') { S.actKind = d.val; el.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === el)); }
+  else if (a === 'peek') { if (e.target.closest('.card') && e.target.closest('.card').classList.contains('dragging')) return; openPeek(d.kind, d.id); }
+  else if (a === 'close-peek') closePeek();
+  else if (a === 'new') {
+    const preset = {};
+    if (d.kind === 'deal') Object.assign(preset, { pipeline_id: S.pipelineId, stage_id: pipeline().stages[0]?.id, contact_id: d.presetContact || null, company_id: d.presetCompany || null });
+    if (d.kind === 'task') Object.assign(preset, { opportunity_id: d.presetDeal || null, contact_id: d.presetContact || null });
+    openPeek(d.kind, null, preset);
+  }
+  else if (a === 'delete') {
+    if (!confirm(`Delete this ${KIND[d.kind].label.toLowerCase()}? This can't be undone.`)) return;
+    await api(`${KIND[d.kind].path}/${d.id}`, 'DELETE'); closePeek(); toast('Deleted'); await refresh();
+  }
+  else if (a === 'log') {
+    const body = $('#act-body').value.trim(); if (!body) return toast('Write something to log', true);
+    const link = JSON.parse(d.link); await api('/api/activities', 'POST', { type: S.actKind || 'call', body, contact_id: link.contact_id || null, opportunity_id: link.opportunity_id || null });
+    toast('Logged'); await refresh();
+  }
+  else if (a === 'del-act') { if (!confirm('Delete this activity?')) return; await api('/api/activities/' + d.id, 'DELETE'); await refresh(); }
+  else if (a === 'save-view') {
+    const name = prompt('Name this view'); if (!name || !name.trim()) return;
+    const entity = { deals: 'opportunities', people: 'contacts', tasks: 'tasks' }[S.view];
+    const filters = { view: S.view, q: S.q, dealStatus: S.dealStatus, pipelineId: S.pipelineId, group: S.group, coldOnly: S.coldOnly, dealTab: S.dealTab, peopleStatus: S.peopleStatus, taskFilter: S.taskFilter };
+    await api('/api/saved-views', 'POST', { name: name.trim(), entity, filters }); toast('View saved'); await refresh();
+  }
+  else if (a === 'apply-view') {
+    if (e.target.closest('.x')) return;
+    const v = S.views.find(x => x.id === d.id); if (!v) return;
+    const f = v.filters || {}; go(f.view || 'deals', { q: f.q || '', dealStatus: f.dealStatus || 'open', pipelineId: f.pipelineId || S.pipelineId, group: f.group || 'stage', coldOnly: !!f.coldOnly, dealTab: f.dealTab || 'table', peopleStatus: f.peopleStatus || '', taskFilter: f.taskFilter || 'open' });
+  }
+  else if (a === 'del-view') { e.stopPropagation(); if (!confirm('Delete this saved view?')) return; await api('/api/saved-views/' + d.id, 'DELETE'); await refresh(); }
+  else if (a === 'bulk-clear') { S.selected = new Set(); render(); }
+  else if (a === 'bulk-delete') {
+    const n = S.selected.size; if (!confirm(`Delete ${n} record${n > 1 ? 's' : ''}? This can't be undone.`)) return;
+    const path = d.entity === 'deals' ? '/api/opportunities/' : '/api/contacts/';
+    for (const id of S.selected) await api(path + id, 'DELETE');
+    S.selected = new Set(); toast(`Deleted ${n}`); await refresh();
+  }
+  else if (a === 'new-pipeline') { const name = prompt('Pipeline name'); if (!name || !name.trim()) return; const p = await api('/api/pipelines', 'POST', { name: name.trim() }); S.pipelineId = p.id; await refresh(); }
+  else if (a === 'del-pipeline') { if (!confirm('Delete this pipeline and its stages?')) return; await api('/api/pipelines/' + d.id, 'DELETE'); await refresh(); }
+  else if (a === 'del-stage') { if (!confirm('Delete this stage?')) return; await api(`/api/pipelines/${d.pid}/stages/${d.id}`, 'DELETE'); await refresh(); }
+  else if (a === 'move-stage') {
+    const stages = [...S.pipelines.find(p => p.id === d.pid).stages]; const i = +d.i, j = i + +d.dir;
+    [stages[i], stages[j]] = [stages[j], stages[i]];
+    await api(`/api/pipelines/${d.pid}/stages/reorder`, 'POST', stages.map((s, k) => ({ id: s.id, position: k }))); await refresh();
+  }
+});
+
+document.addEventListener('submit', e => { if (e.target.id === 'peek-form') { e.preventDefault(); savePeek(); } });
+
+document.addEventListener('change', async e => {
+  const t = e.target, d = t.dataset;
+  if (d.check) { t.checked ? S.selected.add(d.check) : S.selected.delete(d.check); render(); }
+  else if (d.checkall) { const ids = (d.checkall === 'deals' ? dealRows() : S.contacts).map(r => r.id); ids.forEach(id => t.checked ? S.selected.add(id) : S.selected.delete(id)); render(); }
+  else if (d.toggleTask) { await api(`/api/tasks/${d.toggleTask}/complete`, 'PATCH'); await refresh(); }
+  else if (d.change === 'pipeline') { S.pipelineId = t.value; render(); }
+  else if (d.change === 'stage') { await api(`/api/opportunities/${d.id}/stage`, 'PATCH', { stage_id: t.value }); await refresh(); }
+  else if (d.change === 'bulk-stage' && t.value) { for (const id of S.selected) await api(`/api/opportunities/${id}/stage`, 'PATCH', { stage_id: t.value }); S.selected = new Set(); toast('Moved'); await refresh(); }
+  else if (d.change === 'task-due') { await api(`/api/tasks/${d.id}`, 'PUT', { due_date: t.value }); await refresh(); }
+  else if (d.change === 'peek-pipeline') {
+    const p = S.pipelines.find(x => x.id === t.value); const sel = $('#peek-form [name=stage_id]');
+    sel.innerHTML = p.stages.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  }
+  else if (d.change === 'pipe-name' && t.value.trim()) { await api('/api/pipelines/' + d.id, 'PUT', { name: t.value.trim() }); await refresh(); }
+  else if (d.change === 'stage-name' && t.value.trim()) { await api(`/api/pipelines/${d.pid}/stages/${d.id}`, 'PUT', { name: t.value.trim() }); await refresh(); }
+  else if (d.change === 'stage-color') { await api(`/api/pipelines/${d.pid}/stages/${d.id}`, 'PUT', { color: t.value }); await refresh(); }
+});
+document.addEventListener('input', e => {
+  if (e.target.dataset.input === 'q') {
+    S.q = e.target.value; const pos = e.target.selectionStart; render();
+    const f = document.querySelector('[data-input=q]'); if (f) { f.focus(); f.setSelectionRange(pos, pos); }
+  }
+});
+document.addEventListener('keydown', async e => {
+  const t = e.target;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPal(); return; }
+  if (e.key === 'Escape') { if ($('#pal').classList.contains('on')) closePal(); else closePeek(); return; }
+  if (t.dataset && t.dataset.addStage && e.key === 'Enter' && t.value.trim()) { await api(`/api/pipelines/${t.dataset.addStage}/stages`, 'POST', { name: t.value.trim() }); await refresh(); return; }
+  if (t.isContentEditable && e.key === 'Enter') { e.preventDefault(); t.blur(); }
+  if (t.isContentEditable && e.key === 'Escape') { t.blur(); }
+});
+/* Inline edits save on blur */
+document.addEventListener('focusout', async e => {
+  const t = e.target; if (!t.isContentEditable || !t.dataset.edit) return;
+  const [kind, id, field] = t.dataset.edit.split(':'); const K = KIND[kind]; const rec = K.list().find(x => x.id === id); if (!rec) return;
+  let val = t.textContent.trim();
+  if (field === 'monetary_value') val = parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+  if (val === rec[field] || (field === 'monetary_value' && val === +rec[field])) { if (field === 'monetary_value') t.textContent = money(val); return; }
+  if ((field === 'name' || field === 'title') && !val) { toast('That field can’t be empty', true); t.textContent = rec[field]; return; }
+  try { await api(`${K.path}/${id}`, 'PUT', { [field]: val }); toast('Saved'); } catch (err) { /* toast shown */ }
+  await refresh();
+});
+/* Board drag and drop */
+document.addEventListener('dragstart', e => { const c = e.target.closest?.('[data-drag]'); if (c) { c.classList.add('dragging'); e.dataTransfer.setData('text/plain', c.dataset.drag); e.dataTransfer.effectAllowed = 'move'; } });
+document.addEventListener('dragend', e => { const c = e.target.closest?.('[data-drag]'); if (c) setTimeout(() => c.classList.remove('dragging'), 0); });
+document.addEventListener('dragover', e => { const col = e.target.closest('[data-drop]'); if (col) { e.preventDefault(); document.querySelectorAll('.col.over').forEach(x => x !== col && x.classList.remove('over')); col.classList.add('over'); } });
+document.addEventListener('dragleave', e => { const col = e.target.closest('[data-drop]'); if (col && !col.contains(e.relatedTarget)) col.classList.remove('over'); });
+document.addEventListener('drop', async e => {
+  const col = e.target.closest('[data-drop]'); if (!col) return; e.preventDefault(); col.classList.remove('over');
+  const id = e.dataTransfer.getData('text/plain'); const deal = S.deals.find(x => x.id === id);
+  if (!deal || deal.stage_id === col.dataset.drop) return;
+  const updated = await api(`/api/opportunities/${id}/stage`, 'PATCH', { stage_id: col.dataset.drop });
+  toast(`Moved to ${updated.stage_name}${updated.status !== 'open' ? ' · marked ' + updated.status : ''}`); await refresh();
+});
+
+loadAll().then(render).catch(err => { $('#body').innerHTML = `<div class="empty">Couldn’t reach the CRM server: ${esc(err.message)}</div>`; });
+</script>
+</body>
+</html>

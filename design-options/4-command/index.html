@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Specter CRM · Command</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ── Command: never touch the mouse ─────────────────────────────────────
+     Warm terminal dark (not navy), amber as the single accent, green/red only for
+     state. Everything is reachable from the keyboard: j/k, s, n, c, ⌘K, ?. */
+  :root {
+    --bg: #0f0e0c; --panel: #151411; --raise: #1c1a16; --line: #2a2721; --line-2: #3a362e;
+    --text: #ece6da; --dim: #9a9282; --faint: #635d52;
+    --amber: #f5a524; --amber-bg: rgba(245,165,36,.1); --green: #7ee787; --red: #ff6b5b; --blue: #7aa2f7;
+    --sans: 'IBM Plex Sans', sans-serif; --mono: 'IBM Plex Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font: 13.5px/1.5 var(--sans); color: var(--text); background: var(--bg); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button, input { font: inherit; color: inherit; background: none; border: 0; outline: none; }
+  .mono { font-family: var(--mono); }
+  kbd { font: 500 11px var(--mono); color: var(--dim); border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--raise); }
+
+  .app { display: grid; grid-template-rows: 46px 1fr 30px; height: 100vh; }
+  .top { display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--line); position: relative; overflow: hidden; }
+  .top::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 22px 22px; opacity: .35; mask-image: radial-gradient(ellipse at 20% 0%, #000 20%, transparent 70%); pointer-events: none; }
+  .mark { width: 18px; height: 18px; background: var(--amber); clip-path: polygon(0 0, 100% 0, 100% 60%, 60% 100%, 0 100%); }
+  .crumb { font: 12.5px var(--mono); color: var(--dim); }
+  .crumb b { color: var(--text); font-weight: 500; }
+  .top .grow { flex: 1; }
+  .cmdk { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-2); border-radius: 6px; padding: 4px 6px 4px 10px; color: var(--dim); cursor: pointer; background: var(--panel); z-index: 1; }
+  .cmdk:hover { border-color: var(--amber); color: var(--text); }
+  .cmdk.hint { border-color: var(--amber); color: var(--text); animation: hint 1.6s ease-in-out infinite; }
+  @keyframes hint { 50% { box-shadow: 0 0 0 5px rgba(245,165,36,.18); } }
+
+  .body { display: grid; grid-template-columns: 200px 440px 1fr; min-height: 0; }
+  .views { border-right: 1px solid var(--line); padding: 14px 8px; }
+  .views h4 { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .14em; padding: 0 8px 8px; }
+  .views a { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; border-radius: 5px; color: var(--dim); cursor: pointer; margin-bottom: 1px; }
+  .views a:hover { background: var(--raise); color: var(--text); }
+  .views a.on { background: var(--raise); color: var(--text); }
+  .views a kbd { font-size: 10px; }
+  .views .sp { height: 18px; }
+
+  .list { border-right: 1px solid var(--line); overflow: auto; background: var(--panel); }
+  .list-head { position: sticky; top: 0; background: var(--panel); padding: 12px 16px 8px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; font: 12px var(--mono); color: var(--dim); z-index: 1; }
+  .grouph { padding: 12px 16px 5px; font: 500 11px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .12em; display: flex; justify-content: space-between; }
+  .li { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; padding: 7px 16px; cursor: pointer; position: relative; border-left: 2px solid transparent; }
+  .li:hover { background: var(--raise); }
+  .li.on { background: var(--amber-bg); border-left-color: var(--amber); }
+  .li .g { font: 14px var(--mono); text-align: center; }
+  .li .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .li .n small { color: var(--faint); margin-left: 8px; font-size: 12px; }
+  .li .r { font: 12px var(--mono); color: var(--dim); display: flex; gap: 12px; }
+  .li .r .stale { color: var(--red); }
+
+  .rec { overflow: auto; padding: 22px 30px 40px; }
+  .rec .id { font: 12px var(--mono); color: var(--faint); }
+  .rec h1 { font-size: 24px; font-weight: 600; letter-spacing: -.015em; margin: 4px 0 18px; }
+  .props { display: grid; grid-template-columns: 130px 1fr; row-gap: 2px; font-size: 13px; max-width: 560px; }
+  .props > div { padding: 6px 0; }
+  .props .k { font: 12px var(--mono); color: var(--faint); display: flex; align-items: center; justify-content: space-between; padding-right: 16px; }
+  .props .v { padding: 5px 8px; border-radius: 4px; }
+  .props .v:hover { background: var(--raise); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font: 12.5px var(--mono); }
+  .log { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; font: 12.5px/1.8 var(--mono); max-width: 760px; }
+  .log h4 { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .14em; margin-bottom: 8px; }
+  .log .ln { display: grid; grid-template-columns: 96px 58px 1fr; color: var(--dim); }
+  .log .ln b { font-weight: 500; }
+  .log .ln span:last-child { color: var(--text); }
+  .prompt { display: flex; gap: 10px; align-items: center; margin-top: 10px; border: 1px solid var(--line-2); border-radius: 6px; padding: 8px 12px; background: var(--panel); }
+  .prompt:focus-within { border-color: var(--amber); }
+  .prompt span { color: var(--amber); font-family: var(--mono); }
+  .prompt input { flex: 1; font-family: var(--mono); font-size: 12.5px; }
+  .prompt input::placeholder { color: var(--faint); }
+
+  .status { display: flex; align-items: center; gap: 18px; padding: 0 14px; border-top: 1px solid var(--line); font: 11.5px var(--mono); color: var(--dim); background: var(--panel); }
+  .mode { background: var(--amber); color: #1a1204; font-weight: 600; padding: 1px 8px; border-radius: 3px; }
+  .status .grow { flex: 1; }
+
+  /* Command palette */
+  .veil { position: fixed; inset: 0; background: rgba(8,7,6,.62); backdrop-filter: blur(3px); display: none; z-index: 20; }
+  .veil.on { display: block; }
+  .pal { position: fixed; top: 14vh; left: 50%; transform: translateX(-50%); width: 620px; background: var(--raise); border: 1px solid var(--line-2); border-radius: 10px; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(245,165,36,.08); display: none; z-index: 21; overflow: hidden; }
+  .pal.on { display: block; animation: pop .16s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translate(-50%, 6px) scale(.985); } }
+  .pal-in { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .pal-in span { color: var(--amber); font-family: var(--mono); }
+  .pal-in input { flex: 1; font-size: 15px; }
+  .pal-in input::placeholder { color: var(--faint); }
+  .pal-list { max-height: 360px; overflow: auto; padding: 6px; }
+  .pal-sec { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .14em; padding: 8px 10px 4px; }
+  .pal-it { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+  .pal-it.on { background: var(--amber-bg); box-shadow: inset 2px 0 0 var(--amber); }
+  .pal-it .ic { width: 20px; text-align: center; font-family: var(--mono); color: var(--dim); }
+  .pal-it .sub { color: var(--faint); font-size: 12px; margin-left: auto; font-family: var(--mono); }
+  .pal-foot { display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid var(--line); font: 11px var(--mono); color: var(--faint); }
+
+  .sheet { position: fixed; right: 20px; bottom: 44px; width: 300px; background: var(--raise); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px; display: none; z-index: 15; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+  .sheet.on { display: block; }
+  .sheet div { display: flex; justify-content: space-between; padding: 6px 8px; border-radius: 5px; font-size: 13px; }
+  .sheet div:hover { background: var(--amber-bg); }
+  .help { columns: 2; gap: 30px; padding: 16px 18px; font-size: 13px; }
+  .help div { display: flex; justify-content: space-between; padding: 5px 0; break-inside: avoid; color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <span class="mark"></span>
+    <span class="crumb">specter / deals / <b id="crumb-view">open</b></span>
+    <span class="grow"></span>
+    <span class="crumb" style="z-index:1">Design 4 / 5 · Command</span>
+    <button class="cmdk" id="open-pal">Search or run a command <kbd>⌘K</kbd></button>
+  </div>
+
+  <div class="body">
+    <nav class="views" id="views"></nav>
+    <section class="list" id="list"></section>
+    <section class="rec" id="rec"></section>
+  </div>
+
+  <div class="status">
+    <span class="mode" id="mode">NORMAL</span>
+    <span><kbd>j</kbd> <kbd>k</kbd> move</span><span><kbd>s</kbd> stage</span><span><kbd>n</kbd> note</span><span><kbd>c</kbd> log call</span><span><kbd>⌘K</kbd> command</span><span><kbd>?</kbd> all keys</span>
+    <span class="grow"></span><span id="sum"></span>
+  </div>
+</div>
+
+<div class="veil" id="veil"></div>
+<div class="pal" id="pal">
+  <div class="pal-in"><span>›</span><input id="pal-q" placeholder="Type a command, a person, or a deal…" autocomplete="off" /><kbd>esc</kbd></div>
+  <div class="pal-list" id="pal-list"></div>
+  <div class="pal-foot"><span>↑↓ select</span><span>↵ run</span><span>esc close</span></div>
+</div>
+<div class="sheet" id="stage-sheet"></div>
+<div class="pal" id="help" style="width:560px"><div class="pal-in"><span>?</span><b style="flex:1">Keyboard shortcuts</b><kbd>esc</kbd></div><div class="help">
+  <div><span>Move down / up</span><span><kbd>j</kbd> <kbd>k</kbd></span></div><div><span>Command palette</span><kbd>⌘K</kbd></div>
+  <div><span>Change stage</span><kbd>s</kbd></div><div><span>Pick stage</span><span><kbd>1</kbd>–<kbd>6</kbd></span></div>
+  <div><span>Write a note</span><kbd>n</kbd></div><div><span>Log a call</span><kbd>c</kbd></div>
+  <div><span>Open views</span><span><kbd>g</kbd> then <kbd>o</kbd>/<kbd>q</kbd>/<kbd>a</kbd></span></div><div><span>New deal</span><kbd>⇧N</kbd></div>
+</div></div>
+
+<script>
+const STAGES = [['New Lead', '○', 'var(--dim)'], ['Contacted', '◔', 'var(--blue)'], ['Qualified', '◑', 'var(--blue)'], ['Proposal Sent', '◕', 'var(--amber)'], ['Won', '●', 'var(--green)'], ['Lost', '✕', 'var(--red)']];
+const DEALS = [
+  { id: 'DL-104', name: 'Tenant request intake', stage: 'Proposal Sent', value: 1497, contact: 'Tom Okafor', company: 'Brightwater Property Mgmt', last: 12, next: 'Follow up · overdue 2d', src: 'Referral', log: [['09-15 14:02', 'CALL', 'Walked through current intake. 40+ requests a week.'], ['09-15 16:40', 'SENT', 'Proposal · $1,497']] },
+  { id: 'DL-105', name: 'Storm-season lead capture', stage: 'Qualified', value: 997, contact: 'Jenna Kowalski', company: 'Summit Roofing Co.', last: 0, next: 'Demo · Thu 10:00', src: 'Networking', log: [['09-27 09:12', 'SMS', 'Confirmed demo for Thursday 10am.']] },
+  { id: 'DL-102', name: 'Appointment reminders + recall', stage: 'Contacted', value: 794, contact: 'Marcus Ellery', company: 'Northgate Dental Group', last: 9, next: '—', src: 'Website', log: [['09-18 11:30', 'EMAIL', 'Sent summary of the reminder workflow and pricing.']] },
+  { id: 'DL-101', name: 'After-hours call answering', stage: 'New Lead', value: 497, contact: 'Dana Whitfield', company: 'Harborline Plumbing', last: 2, next: '—', src: 'Referral', log: [['09-25 15:05', 'CALL', 'Intro call. Busiest months are June to September.']] },
+  { id: 'DL-106', name: 'Billing follow-up workflow', stage: 'Contacted', value: 497, contact: 'Grace Holloway', company: 'Northgate Dental Group', last: 15, next: '—', src: 'Website', log: [['09-12 10:18', 'EMAIL', 'Asked for a demo before deciding.']] },
+  { id: 'DL-103', name: 'Review request automation', stage: 'Qualified', value: 297, contact: 'Priya Sandoval', company: 'Cedar & Pine Landscaping', last: 1, next: 'Send proposal · Mon', src: 'Cold email', log: [['09-26 17:44', 'NOTE', 'Competitors nearby have 3-4x the review count.']] },
+  { id: 'DL-107', name: 'New patient intake forms', stage: 'Won', value: 1297, contact: 'Luis Ferreira', company: 'Lumen Physical Therapy', last: 3, next: 'Kickoff · Oct 02', src: 'Website', log: [['09-24 13:20', 'NOTE', 'Contract signed. Needs EHR export format.']] },
+  { id: 'DL-108', name: 'Owner reporting dashboard', stage: 'Lost', value: 1997, contact: 'Owen Brandt', company: 'Brightwater Property Mgmt', last: 20, next: 'Check in · Dec 26', src: 'Referral', log: [['09-07 09:55', 'CALL', 'Not this quarter. Follow up in January.']] },
+];
+const VIEWS = { open: ['Open deals', d => !['Won', 'Lost'].includes(d.stage), 'o'], quiet: ['Going quiet', d => !['Won', 'Lost'].includes(d.stage) && d.last >= 7, 'q'], all: ['All deals', () => true, 'a'] };
+const $ = s => document.querySelector(s);
+const money = n => '$' + n.toLocaleString('en-US');
+const st = k => STAGES.find(s => s[0] === k);
+let view = 'open', cur = 0, palIdx = 0, palItems = [], pendingG = false;
+
+function rows() { const f = VIEWS[view][1]; return STAGES.flatMap(s => DEALS.filter(d => d.stage === s[0] && f(d))); }
+
+function render() {
+  $('#views').innerHTML = `<h4>Views</h4>` + Object.entries(VIEWS).map(([k, [l, f, key]]) => `<a data-v="${k}" class="${k === view ? 'on' : ''}"><span>${l} <span style="color:var(--faint)">${DEALS.filter(f).length}</span></span><kbd>g ${key}</kbd></a>`).join('') +
+    `<div class="sp"></div><h4>Records</h4><a>People <kbd>g p</kbd></a><a>Companies <kbd>g c</kbd></a><a>Tasks <kbd>g t</kbd></a>`;
+  document.querySelectorAll('[data-v]').forEach(a => a.onclick = () => setView(a.dataset.v));
+  const r = rows(); cur = Math.min(cur, r.length - 1);
+  let html = `<div class="list-head"><span>${VIEWS[view][0].toLowerCase()}</span><span>${r.length} · ${money(r.reduce((t, d) => t + d.value, 0))}</span></div>`;
+  let lastStage = null;
+  r.forEach((d, i) => {
+    if (d.stage !== lastStage) { lastStage = d.stage; const g = r.filter(x => x.stage === d.stage); html += `<div class="grouph"><span>${d.stage}</span><span>${money(g.reduce((t, x) => t + x.value, 0))}</span></div>`; }
+    const s = st(d.stage);
+    html += `<div class="li ${i === cur ? 'on' : ''}" data-i="${i}"><span class="g" style="color:${s[2]}">${s[1]}</span><span class="n">${d.name}<small>${d.company}</small></span><span class="r"><span class="${d.last >= 7 && !['Won', 'Lost'].includes(d.stage) ? 'stale' : ''}">${d.last}d</span><span>${money(d.value)}</span></span></div>`;
+  });
+  $('#list').innerHTML = html;
+  document.querySelectorAll('.li').forEach(el => el.onclick = () => { cur = +el.dataset.i; render(); });
+  $('.li.on')?.scrollIntoView({ block: 'nearest' });
+  renderRec(r[cur]);
+  $('#crumb-view').textContent = VIEWS[view][0].toLowerCase();
+  $('#sum').textContent = `${DEALS.filter(VIEWS.open[1]).length} open · ${money(DEALS.filter(VIEWS.open[1]).reduce((t, d) => t + d.value, 0))} pipeline`;
+}
+
+function renderRec(d) {
+  if (!d) { $('#rec').innerHTML = '<p style="color:var(--faint)">Nothing in this view.</p>'; return; }
+  const s = st(d.stage);
+  $('#rec').innerHTML = `<div class="id">${d.id}</div><h1>${d.name}</h1>
+    <div class="props">
+      <div class="k">Stage <kbd>s</kbd></div><div class="v"><span class="tag" style="color:${s[2]}">${s[1]} ${d.stage}</span></div>
+      <div class="k">Value</div><div class="v mono">${money(d.value)}</div>
+      <div class="k">Contact</div><div class="v">${d.contact}</div>
+      <div class="k">Company</div><div class="v">${d.company}</div>
+      <div class="k">Next step</div><div class="v" style="color:${d.next.includes('overdue') ? 'var(--red)' : d.next === '—' ? 'var(--faint)' : 'var(--text)'}">${d.next}</div>
+      <div class="k">Last touch</div><div class="v mono" style="color:${d.last >= 7 ? 'var(--red)' : 'var(--text)'}">${d.last === 0 ? 'today' : d.last === 1 ? '1 day ago' : d.last + ' days ago'}</div>
+      <div class="k">Source</div><div class="v">${d.src}</div>
+    </div>
+    <div class="log"><h4>Activity</h4>${d.log.map(([t, k, b]) => `<div class="ln"><span>${t}</span><b style="color:${k === 'CALL' ? 'var(--green)' : k === 'SENT' ? 'var(--amber)' : 'var(--blue)'}">${k}</b><span>${b}</span></div>`).join('')}
+      <div class="prompt"><span>›</span><input id="note" placeholder="n to write a note · c to log a call" /></div></div>`;
+  $('#note').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim()) { d.log.push([new Date().toTimeString().slice(0, 5).padStart(11, '09-27 '), 'NOTE', e.target.value.trim()]); d.last = 0; render(); } if (e.key === 'Escape') e.target.blur(); };
+}
+
+function setView(v) { view = v; cur = 0; render(); }
+function current() { return rows()[cur]; }
+
+/* ── Command palette ── */
+function commands() {
+  const d = current();
+  const cmds = [
+    ['→', `Move “${d.name}” to…`, 'stage', () => openStage()],
+    ['✎', 'Write a note on this deal', 'n', () => $('#note').focus()],
+    ['☎', `Log a call with ${d.contact}`, 'c', () => { d.log.push(['09-27 now', 'CALL', 'Call logged.']); d.last = 0; render(); }],
+    ['+', 'New deal', '⇧N', () => {}],
+    ['◐', 'Show deals going quiet', 'g q', () => setView('quiet')],
+    ['▤', 'Show all open deals', 'g o', () => setView('open')],
+  ];
+  const recs = DEALS.map(x => ['↗', x.name, x.company, () => { view = 'all'; cur = rows().findIndex(r => r.id === x.id); render(); }, `${x.name} ${x.company} ${x.contact}`]);
+  const people = [...new Set(DEALS.map(x => x.contact))].map(p => ['@', p, DEALS.find(x => x.contact === p).company, () => { view = 'all'; cur = rows().findIndex(r => r.contact === p); render(); }]);
+  return [['Actions', cmds], ['Deals', recs], ['People', people]];
+}
+function openPal() { $('#veil').classList.add('on'); $('#pal').classList.add('on'); $('#pal-q').value = ''; palIdx = 0; renderPal(); setTimeout(() => $('#pal-q').focus(), 10); $('#mode').textContent = 'COMMAND'; }
+function closeAll() { ['#veil', '#pal', '#help', '#stage-sheet'].forEach(s => $(s).classList.remove('on')); $('#mode').textContent = 'NORMAL'; }
+function renderPal() {
+  const q = $('#pal-q').value.toLowerCase(); palItems = []; let html = '';
+  for (const [sec, items] of commands()) {
+    const f = items.filter(i => (i[4] || i[1] + ' ' + i[2]).toLowerCase().includes(q));
+    if (!f.length) continue; html += `<div class="pal-sec">${sec}</div>`;
+    f.slice(0, q ? 8 : 4).forEach(i => { html += `<div class="pal-it ${palItems.length === palIdx ? 'on' : ''}" data-p="${palItems.length}"><span class="ic">${i[0]}</span>${i[1]}<span class="sub">${i[2]}</span></div>`; palItems.push(i); });
+  }
+  $('#pal-list').innerHTML = html || '<div class="pal-sec">No matches</div>';
+  document.querySelectorAll('.pal-it').forEach(el => el.onclick = () => run(+el.dataset.p));
+}
+function run(i) { const it = palItems[i]; closeAll(); it && it[3](); }
+$('#pal-q').oninput = () => { palIdx = 0; renderPal(); };
+$('#pal-q').onkeydown = e => {
+  if (e.key === 'ArrowDown') { palIdx = Math.min(palIdx + 1, palItems.length - 1); renderPal(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { palIdx = Math.max(palIdx - 1, 0); renderPal(); e.preventDefault(); }
+  if (e.key === 'Enter') run(palIdx);
+};
+function openStage() {
+  $('#stage-sheet').innerHTML = `<div style="color:var(--faint);font:11px var(--mono)">MOVE TO</div>` + STAGES.map((s, i) => `<div data-s="${i}"><span style="color:${s[2]}">${s[1]} ${s[0]}</span><kbd>${i + 1}</kbd></div>`).join('');
+  $('#stage-sheet').classList.add('on'); $('#mode').textContent = 'STAGE';
+  document.querySelectorAll('[data-s]').forEach(el => el.onclick = () => setStage(+el.dataset.s));
+}
+function setStage(i) { const d = current(); d.stage = STAGES[i][0]; d.last = 0; closeAll(); view = 'all'; cur = rows().findIndex(r => r.id === d.id); render(); }
+$('#open-pal').onclick = openPal; $('#veil').onclick = closeAll;
+
+document.addEventListener('keydown', e => {
+  const typing = e.target.tagName === 'INPUT';
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPal(); return; }
+  if (e.key === 'Escape') { closeAll(); return; }
+  if (typing) return;
+  if ($('#stage-sheet').classList.contains('on') && /^[1-6]$/.test(e.key)) { setStage(+e.key - 1); return; }
+  if (pendingG) { pendingG = false; const m = { o: 'open', q: 'quiet', a: 'all' }[e.key]; if (m) setView(m); return; }
+  const n = rows().length;
+  if (e.key === 'j' || e.key === 'ArrowDown') { cur = Math.min(cur + 1, n - 1); render(); e.preventDefault(); }
+  else if (e.key === 'k' || e.key === 'ArrowUp') { cur = Math.max(cur - 1, 0); render(); e.preventDefault(); }
+  else if (e.key === 's') openStage();
+  else if (e.key === 'n') { e.preventDefault(); $('#note').focus(); }
+  else if (e.key === 'c') { const d = current(); d.log.push(['09-27 now', 'CALL', `Call with ${d.contact} logged.`]); d.last = 0; render(); }
+  else if (e.key === 'g') pendingG = true;
+  else if (e.key === '?') { $('#veil').classList.add('on'); $('#help').classList.add('on'); }
+});
+render();
+$('#open-pal').classList.add('hint'); setTimeout(() => $('#open-pal').classList.remove('hint'), 6000); // point at ⌘K without hiding the app
+</script>
+</body>
+</html>

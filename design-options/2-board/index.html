@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Specter CRM · Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ── Board: every deal needs a next step ────────────────────────────────
+     Neo-brutalist. Hard black borders, offset shadows, saturated stage colours.
+     The pipeline is the home screen. Deals with no next step are loud; deals
+     untouched for 7+ days "rot" (striped). Drag a card and Won / Lost appear. */
+  :root {
+    --cream: #fffdf5; --ink: #0a0a0a; --white: #fff;
+    --yellow: #fde047; --pink: #f9a8d4; --blue: #93c5fd; --lilac: #c4b5fd;
+    --green: #4ade80; --red: #ff4d4d; --orange: #fb923c;
+    --display: 'Syne', sans-serif; --body: 'Space Grotesk', sans-serif;
+    --sh: 5px 5px 0 0 var(--ink); --sh-sm: 3px 3px 0 0 var(--ink); --sh-lg: 8px 8px 0 0 var(--ink);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 14px/1.4 var(--body); color: var(--ink); background: var(--cream); min-height: 100vh; overflow-x: hidden; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(70px); opacity: .35; z-index: -1; mix-blend-mode: multiply; animation: blob 14s infinite; }
+  @keyframes blob { 33% { transform: translate(30px,-40px) scale(1.1); } 66% { transform: translate(-20px,20px) scale(.92); } }
+
+  header { display: flex; align-items: center; gap: 22px; padding: 18px 28px; border-bottom: 2.5px solid var(--ink); background: var(--cream); }
+  .logo { font: 800 20px var(--display); letter-spacing: -.02em; display: flex; align-items: center; gap: 10px; }
+  .logo span { background: var(--ink); color: var(--yellow); padding: 2px 8px; border: 2px solid var(--ink); transform: rotate(-3deg); display: inline-block; }
+  nav { display: flex; gap: 8px; }
+  nav a { padding: 7px 14px; border: 2px solid var(--ink); border-radius: 999px; font-weight: 600; text-decoration: none; color: var(--ink); background: var(--white); }
+  nav a.on { background: var(--ink); color: var(--cream); }
+  nav a:not(.on):hover { background: var(--yellow); }
+  .grow { flex: 1; }
+  .btn { background: var(--ink); color: var(--cream); border: 2.5px solid var(--ink); padding: 9px 16px; font-weight: 700; box-shadow: var(--sh-sm); transition: transform .12s, box-shadow .12s; }
+  .btn:hover { transform: translate(2px,2px); box-shadow: none; }
+  .btn.alt { background: var(--yellow); color: var(--ink); }
+
+  /* Goal strip */
+  .strip { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 16px; padding: 22px 28px 8px; }
+  .panel { border: 2.5px solid var(--ink); background: var(--white); box-shadow: var(--sh); padding: 14px 16px; position: relative; }
+  .lbl { font: 700 11px var(--body); text-transform: uppercase; letter-spacing: .12em; }
+  .big { font: 800 34px/1 var(--display); letter-spacing: -.03em; margin-top: 6px; }
+  .big small { font: 600 15px var(--body); letter-spacing: 0; margin-left: 4px; }
+  .bar { height: 16px; border: 2.5px solid var(--ink); margin-top: 12px; background: repeating-linear-gradient(-45deg, #fff, #fff 6px, #f3f0e0 6px, #f3f0e0 12px); position: relative; }
+  .bar i { position: absolute; inset: 0 auto 0 0; background: var(--green); border-right: 2.5px solid var(--ink); transition: width .6s cubic-bezier(.16,1,.3,1); }
+  .panel.warn { background: var(--red); }
+  .panel.warn .big, .panel.warn .lbl { color: var(--ink); }
+  .tilt { position: absolute; top: -12px; right: 12px; background: var(--yellow); border: 2px solid var(--ink); padding: 1px 8px; font: 700 11px var(--body); transform: rotate(4deg); }
+
+  /* Board */
+  .board { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 18px; padding: 22px 28px 120px; align-items: start; }
+  .col { border: 2.5px solid var(--ink); background: rgba(255,255,255,.55); min-height: 420px; display: flex; flex-direction: column; }
+  .col-head { padding: 12px 14px; border-bottom: 2.5px solid var(--ink); }
+  .col-head h2 { font: 800 17px var(--display); display: flex; justify-content: space-between; align-items: baseline; letter-spacing: -.01em; }
+  .col-head h2 span { font: 700 13px var(--body); }
+  .col-head .meta { font-size: 12px; font-weight: 500; margin-top: 3px; display: flex; justify-content: space-between; }
+  .col-body { padding: 12px; display: flex; flex-direction: column; gap: 14px; flex: 1; transition: background .15s; }
+  .col.over .col-body { background: repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(0,0,0,.06) 8px, rgba(0,0,0,.06) 16px); }
+
+  .card { background: var(--white); border: 2.5px solid var(--ink); box-shadow: var(--sh); padding: 12px 12px 10px; cursor: grab; position: relative; transition: transform .15s, box-shadow .15s; }
+  .card:hover { transform: translate(-2px,-2px); box-shadow: var(--sh-lg); }
+  .card.dragging { opacity: .4; }
+  .card.rot { background: linear-gradient(90deg, transparent 10px, var(--white) 10px), repeating-linear-gradient(45deg, var(--red), var(--red) 5px, var(--ink) 5px, var(--ink) 10px); padding-left: 20px; }
+  .card h3 { font: 700 15px/1.2 var(--body); letter-spacing: -.01em; }
+  .card .co { font-size: 12.5px; margin-top: 2px; color: #444; }
+  .card .row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .card .val { font: 800 20px var(--display); letter-spacing: -.02em; }
+  .who { width: 28px; height: 28px; border: 2px solid var(--ink); border-radius: 50%; display: grid; place-items: center; font: 700 11px var(--body); }
+  .rot-tag { position: absolute; top: -11px; right: 10px; background: var(--red); border: 2px solid var(--ink); padding: 0 7px; font: 700 10.5px var(--body); text-transform: uppercase; letter-spacing: .06em; transform: rotate(-3deg); }
+  .next { margin-top: 10px; border-top: 2px dashed var(--ink); padding-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
+  .next .ic { width: 22px; height: 22px; border: 2px solid var(--ink); display: grid; place-items: center; background: var(--green); font-size: 11px; }
+  .next.late .ic { background: var(--red); }
+  .next.none { color: var(--ink); }
+  .next.none button { background: var(--yellow); border: 2px solid var(--ink); padding: 3px 8px; font-weight: 700; font-size: 12px; box-shadow: 2px 2px 0 var(--ink); animation: nudge 2.4s infinite; }
+  @keyframes nudge { 0%, 88%, 100% { transform: rotate(0); } 92% { transform: rotate(-3deg); } 96% { transform: rotate(3deg); } }
+
+  /* Won / Lost drop bar (appears while dragging) */
+  .dropbar { position: fixed; left: 50%; bottom: -120px; transform: translateX(-50%); display: flex; gap: 16px; transition: bottom .25s cubic-bezier(.16,1,.3,1); z-index: 20; }
+  .dropbar.on { bottom: 24px; }
+  .dz { width: 260px; height: 74px; border: 3px solid var(--ink); box-shadow: var(--sh); display: grid; place-items: center; font: 800 24px var(--display); letter-spacing: .02em; transition: transform .12s; }
+  .dz.won { background: var(--green); } .dz.lost { background: var(--red); }
+  .dz.over { transform: scale(1.06) rotate(-1.5deg); }
+
+  .closed { display: flex; gap: 12px; padding: 0 28px; }
+  .pill { border: 2px solid var(--ink); padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; background: var(--white); }
+  .pill.g { background: var(--green); } .pill.r { background: var(--red); }
+
+  /* Schedule popover */
+  .pop { position: fixed; z-index: 30; width: 270px; background: var(--white); border: 2.5px solid var(--ink); box-shadow: var(--sh-lg); padding: 14px; display: none; }
+  .pop.on { display: block; }
+  .pop h4 { font: 800 16px var(--display); margin-bottom: 10px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .opts button { border: 2px solid var(--ink); background: var(--cream); padding: 5px 10px; font-weight: 600; font-size: 12.5px; }
+  .opts button.on { background: var(--ink); color: var(--cream); }
+  .toast { position: fixed; top: 22px; left: 50%; transform: translate(-50%, -140%); background: var(--ink); color: var(--yellow); border: 2.5px solid var(--ink); padding: 10px 18px; font-weight: 700; box-shadow: 4px 4px 0 var(--yellow); transition: transform .3s cubic-bezier(.16,1,.3,1); z-index: 40; }
+  .toast.on { transform: translate(-50%, 0); }
+  .foot { position: fixed; bottom: 10px; right: 16px; font: 600 11px var(--body); opacity: .55; }
+</style>
+</head>
+<body>
+<div class="blob" style="width:420px;height:420px;background:var(--yellow);top:-80px;right:10%"></div>
+<div class="blob" style="width:380px;height:380px;background:var(--pink);bottom:-60px;left:-60px;animation-delay:-5s"></div>
+
+<header>
+  <div class="logo"><span>S</span>Specter CRM</div>
+  <nav><a class="on">Pipeline</a><a>People</a><a>Activities</a><a>Reports</a></nav>
+  <div class="grow"></div>
+  <button class="btn alt">⌕ Search</button>
+  <button class="btn">+ Deal</button>
+</header>
+
+<section class="strip">
+  <div class="panel"><span class="tilt">September</span><div class="lbl">Won vs. goal</div><div class="big" id="won">$1,297<small>of $5,000</small></div><div class="bar"><i id="goalbar" style="width:26%"></i></div></div>
+  <div class="panel"><div class="lbl">Open pipeline</div><div class="big" id="open"></div></div>
+  <div class="panel"><div class="lbl">Weighted forecast</div><div class="big" id="weighted"></div></div>
+  <div class="panel warn"><div class="lbl">Need a next step</div><div class="big" id="nonext"></div></div>
+</section>
+
+<div class="closed" id="closed"></div>
+<main class="board" id="board"></main>
+
+<div class="dropbar" id="dropbar"><div class="dz won" data-drop="Won">WON 🎉</div><div class="dz lost" data-drop="Lost">LOST</div></div>
+
+<div class="pop" id="pop">
+  <h4>Schedule the next step</h4>
+  <div class="lbl" style="margin-bottom:6px">What</div>
+  <div class="opts" id="what"><button class="on">📞 Call</button><button>✉ Email</button><button>🤝 Meeting</button></div>
+  <div class="lbl" style="margin-bottom:6px">When</div>
+  <div class="opts" id="when"><button class="on">Tomorrow</button><button>Thu</button><button>Next week</button></div>
+  <button class="btn" id="sched" style="width:100%">Schedule it</button>
+</div>
+<div class="toast" id="toast"></div>
+<div class="foot">Design 2 / 5 · Board</div>
+
+<script>
+const STAGES = [
+  { key: 'New Lead', color: 'var(--yellow)', p: .1 }, { key: 'Contacted', color: 'var(--pink)', p: .25 },
+  { key: 'Qualified', color: 'var(--blue)', p: .5 }, { key: 'Proposal Sent', color: 'var(--lilac)', p: .75 },
+];
+const DEALS = [
+  { id: 1, name: 'After-hours call answering', stage: 'New Lead', value: 497, contact: 'Dana Whitfield', company: 'Harborline Plumbing', last: 2, next: null },
+  { id: 2, name: 'Appointment reminders + recall', stage: 'Contacted', value: 794, contact: 'Marcus Ellery', company: 'Northgate Dental Group', last: 9, next: null },
+  { id: 3, name: 'Review request automation', stage: 'Qualified', value: 297, contact: 'Priya Sandoval', company: 'Cedar & Pine Landscaping', last: 1, next: { t: '✉', l: 'Send proposal · Mon' } },
+  { id: 4, name: 'Tenant request intake', stage: 'Proposal Sent', value: 1497, contact: 'Tom Okafor', company: 'Brightwater Property Mgmt', last: 12, next: { t: '📞', l: 'Follow up · 2 days late', late: true } },
+  { id: 5, name: 'Storm-season lead capture', stage: 'Qualified', value: 997, contact: 'Jenna Kowalski', company: 'Summit Roofing Co.', last: 0, next: { t: '🤝', l: 'Demo · Thu 10am' } },
+  { id: 6, name: 'Billing follow-up workflow', stage: 'Contacted', value: 497, contact: 'Grace Holloway', company: 'Northgate Dental Group', last: 15, next: null },
+  { id: 7, name: 'New patient intake forms', stage: 'Won', value: 1297, contact: 'Luis Ferreira', company: 'Lumen Physical Therapy', last: 3, next: null },
+  { id: 8, name: 'Owner reporting dashboard', stage: 'Lost', value: 1997, contact: 'Owen Brandt', company: 'Brightwater Property Mgmt', last: 20, next: null },
+];
+const GOAL = 5000, ROT_DAYS = 7;
+const $ = s => document.querySelector(s);
+const money = n => '$' + Math.round(n).toLocaleString('en-US');
+const initials = n => n.split(' ').map(p => p[0]).join('');
+let dragId = null, popFor = null;
+
+function render() {
+  const open = DEALS.filter(d => STAGES.some(s => s.key === d.stage));
+  const won = DEALS.filter(d => d.stage === 'Won'), lost = DEALS.filter(d => d.stage === 'Lost');
+  const wonV = won.reduce((t, d) => t + d.value, 0);
+  $('#won').innerHTML = `${money(wonV)}<small>of ${money(GOAL)}</small>`;
+  $('#goalbar').style.width = Math.min(100, wonV / GOAL * 100) + '%';
+  $('#open').innerHTML = `${money(open.reduce((t, d) => t + d.value, 0))}<small>${open.length} deals</small>`;
+  $('#weighted').textContent = money(open.reduce((t, d) => t + d.value * STAGES.find(s => s.key === d.stage).p, 0));
+  $('#nonext').innerHTML = `${open.filter(d => !d.next).length}<small>deals</small>`;
+  $('#closed').innerHTML = `<span class="pill g">Won · ${won.length} · ${money(wonV)}</span><span class="pill r">Lost · ${lost.length}</span>`;
+
+  $('#board').innerHTML = STAGES.map(s => {
+    const g = open.filter(d => d.stage === s.key);
+    return `<section class="col" data-col="${s.key}">
+      <div class="col-head" style="background:${s.color}"><h2>${s.key}<span>${g.length}</span></h2>
+        <div class="meta"><span>${money(g.reduce((t, d) => t + d.value, 0))}</span><span>${Math.round(s.p * 100)}% likely</span></div></div>
+      <div class="col-body">${g.map(card).join('')}</div></section>`;
+  }).join('');
+  wire();
+}
+
+function card(d) {
+  const rot = d.last >= ROT_DAYS;
+  const next = d.next
+    ? `<div class="next ${d.next.late ? 'late' : ''}"><span class="ic">${d.next.t}</span>${d.next.l}</div>`
+    : `<div class="next none">⚠ No next step <button data-sched="${d.id}">+ Schedule</button></div>`;
+  return `<article class="card ${rot ? 'rot' : ''}" draggable="true" data-id="${d.id}">
+    ${rot ? `<span class="rot-tag">Rotting ${d.last}d</span>` : ''}
+    <h3>${d.name}</h3><div class="co">${d.company}</div>
+    <div class="row"><span class="val">${money(d.value)}</span><span class="who" title="${d.contact}">${initials(d.contact)}</span></div>
+    ${next}</article>`;
+}
+
+function wire() {
+  document.querySelectorAll('.card').forEach(c => {
+    c.ondragstart = e => { dragId = +c.dataset.id; c.classList.add('dragging'); $('#dropbar').classList.add('on'); e.dataTransfer.effectAllowed = 'move'; };
+    c.ondragend = () => { c.classList.remove('dragging'); $('#dropbar').classList.remove('on'); };
+  });
+  document.querySelectorAll('[data-col], [data-drop]').forEach(z => {
+    z.ondragover = e => { e.preventDefault(); z.classList.add('over'); };
+    z.ondragleave = () => z.classList.remove('over');
+    z.ondrop = e => {
+      e.preventDefault(); z.classList.remove('over');
+      const d = DEALS.find(x => x.id === dragId); const to = z.dataset.col || z.dataset.drop;
+      if (!d || d.stage === to) return;
+      d.stage = to; d.last = 0;
+      toast(to === 'Won' ? `🎉 ${d.company} is a customer. ${money(d.value)} won.` : to === 'Lost' ? `Marked lost. Add a reason so you learn from it.` : `Moved to ${to}. What's the next step?`);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-sched]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); popFor = +b.dataset.sched;
+    const r = b.getBoundingClientRect(); const p = $('#pop');
+    p.style.left = Math.min(r.left, innerWidth - 290) + 'px'; p.style.top = (r.bottom + 10) + 'px'; p.classList.add('on');
+  });
+}
+document.querySelectorAll('.opts').forEach(o => o.onclick = e => { if (e.target.tagName !== 'BUTTON') return; o.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === e.target)); });
+$('#sched').onclick = () => {
+  const d = DEALS.find(x => x.id === popFor);
+  const what = $('#what .on').textContent, when = $('#when .on').textContent;
+  d.next = { t: what.split(' ')[0], l: `${what.split(' ')[1]} · ${when}` }; d.last = 0;
+  $('#pop').classList.remove('on'); toast('Next step scheduled. That deal is no longer rotting.'); render();
+};
+document.addEventListener('click', e => { if (!e.target.closest('.pop') && !e.target.dataset.sched) $('#pop').classList.remove('on'); });
+let tt; function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 2600); }
+render();
+</script>
+</body>
+</html>

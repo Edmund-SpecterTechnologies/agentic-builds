@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Specter CRM · Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ── Ledger: the CRM as a spreadsheet you can trust ─────────────────────
+     Swiss minimal. One ink, hairline grid, colour only where it carries
+     meaning (stage dots, "going cold"). Numbers are always mono and right-aligned. */
+  :root {
+    --paper: #ffffff;
+    --wash: #f7f7f5;
+    --hover: #f2f2ef;
+    --rule: #e8e8e4;
+    --rule-strong: #d6d6d0;
+    --ink: #171716;
+    --ink-2: #4a4a46;
+    --ink-3: #8a8a84;
+    --ink-4: #b4b4ae;
+    --focus: #1d4ed8;
+    --cold: #c2410c;
+    --s-lead: #9ca3af; --s-contacted: #3b82f6; --s-qualified: #8b5cf6;
+    --s-proposal: #d97706; --s-won: #16a34a; --s-lost: #dc2626;
+    --sans: 'Geist', ui-sans-serif, sans-serif;
+    --mono: 'Geist Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font: 13px/1.45 var(--sans); color: var(--ink); background: var(--paper); -webkit-font-smoothing: antialiased; overflow: hidden; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  .mono { font-family: var(--mono); font-feature-settings: "tnum"; }
+
+  .app { display: grid; grid-template-columns: 232px 1fr; height: 100vh; }
+
+  /* Sidebar */
+  aside { background: var(--wash); border-right: 1px solid var(--rule); display: flex; flex-direction: column; padding: 14px 10px; gap: 22px; }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 2px 8px; }
+  .brand-mark { width: 22px; height: 22px; border: 1.5px solid var(--ink); display: grid; grid-template: 1fr 1fr / 1fr 1fr; }
+  .brand-mark i { border-right: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); }
+  .brand-mark i:nth-child(2n) { border-right: 0; } .brand-mark i:nth-child(n+3) { border-bottom: 0; }
+  .brand b { font-weight: 600; letter-spacing: -0.01em; }
+  .search { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--rule-strong); background: var(--paper); border-radius: 6px; padding: 6px 9px; color: var(--ink-3); }
+  .kbd { font: 11px var(--mono); color: var(--ink-3); border: 1px solid var(--rule-strong); border-radius: 4px; padding: 0 5px; background: var(--wash); }
+  .nav-label { font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); padding: 0 8px 6px; display: flex; align-items: center; gap: 8px; }
+  .nav-label::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  .nav a { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 5px; color: var(--ink-2); text-decoration: none; cursor: pointer; }
+  .nav a:hover { background: var(--hover); }
+  .nav a.on { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1px var(--rule-strong); font-weight: 500; }
+  .nav a .n { font: 11px var(--mono); color: var(--ink-3); }
+  .nav a .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+  .side-foot { margin-top: auto; padding: 8px; font: 11px var(--mono); color: var(--ink-3); }
+
+  /* Main */
+  main { display: flex; flex-direction: column; min-width: 0; position: relative; }
+  .head { padding: 18px 24px 0; border-bottom: 1px solid var(--rule); }
+  .crumb { font: 11px var(--mono); color: var(--ink-3); letter-spacing: .04em; }
+  .title-row { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 4px; }
+  h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; }
+  .btn { border: 1px solid var(--rule-strong); border-radius: 6px; padding: 6px 11px; background: var(--paper); font-weight: 500; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn.primary:hover { background: #333; }
+  .tabs { display: flex; gap: 18px; margin-top: 14px; }
+  .tab { padding: 8px 0 9px; color: var(--ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500; }
+  .tab.on { color: var(--ink); border-color: var(--ink); }
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 24px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px dashed var(--rule-strong); border-radius: 999px; padding: 3px 10px; color: var(--ink-2); font-size: 12px; }
+  .chip.set { border-style: solid; background: var(--wash); }
+  .chip b { font-weight: 500; color: var(--ink); }
+  .toolbar .grow { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 6px; overflow: hidden; }
+  .seg button { padding: 4px 10px; font-size: 12px; color: var(--ink-3); }
+  .seg button.on { background: var(--ink); color: #fff; }
+
+  /* Grid */
+  .grid-wrap { flex: 1; overflow: auto; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1060px; }
+  th, td { border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); padding: 0 12px; height: 38px; text-align: left; white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--paper); z-index: 2; font: 500 11px var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; height: 34px; cursor: pointer; user-select: none; }
+  th:hover { color: var(--ink); }
+  th .t { font: 10px var(--mono); color: var(--ink-4); margin-right: 6px; text-transform: none; letter-spacing: 0; }
+  th.num, td.num { text-align: right; }
+  td:first-child, th:first-child { position: sticky; left: 0; background: inherit; z-index: 1; width: 40px; min-width: 40px; max-width: 40px; text-align: center; padding: 0; }
+  th:first-child { z-index: 3; background: var(--paper); }
+  td:nth-child(2), th:nth-child(2) { position: sticky; left: 40px; z-index: 1; background: inherit; box-shadow: 1px 0 0 var(--rule-strong); }
+  th:nth-child(2) { z-index: 3; background: var(--paper); }
+  tr.row { background: var(--paper); cursor: default; }
+  tr.row:hover { background: var(--wash); }
+  tr.row.sel { background: #eef2ff; }
+  tr.group td { background: var(--wash); height: 32px; font-size: 12px; color: var(--ink-2); }
+  tr.group td b { font-weight: 600; color: var(--ink); margin: 0 8px 0 6px; }
+  tr.group .sum { font: 12px var(--mono); color: var(--ink-3); }
+  input[type=checkbox] { accent-color: var(--ink); width: 14px; height: 14px; }
+  .deal { display: flex; align-items: center; gap: 8px; }
+  .deal [contenteditable] { outline: none; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; font-weight: 500; }
+  .deal [contenteditable]:focus { box-shadow: 0 0 0 2px var(--focus); background: #fff; }
+  .open-peek { opacity: 0; font: 11px var(--mono); color: var(--ink-3); border: 1px solid var(--rule-strong); border-radius: 4px; padding: 0 6px; margin-left: auto; }
+  tr.row:hover .open-peek { opacity: 1; }
+  .stage { display: inline-flex; align-items: center; gap: 7px; }
+  .stage i { width: 8px; height: 8px; border-radius: 2px; }
+  select.stage-sel { font: inherit; border: 0; background: transparent; color: var(--ink); cursor: pointer; padding: 4px 0; appearance: none; }
+  select.stage-sel:hover { text-decoration: underline dotted; }
+  .val[contenteditable] { outline: none; font-family: var(--mono); padding: 2px 4px; border-radius: 4px; }
+  .val[contenteditable]:focus { box-shadow: 0 0 0 2px var(--focus); }
+  .person { display: inline-flex; align-items: center; gap: 7px; }
+  .av { width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font: 600 9px var(--sans); }
+  .muted { color: var(--ink-3); }
+  .cold { color: var(--cold); font-weight: 500; }
+  .cold::before { content: "●"; font-size: 8px; margin-right: 5px; vertical-align: 2px; }
+  .next-none { color: var(--ink-4); font-style: italic; }
+  tfoot td { position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--rule-strong); height: 36px; font: 12px var(--mono); color: var(--ink-3); }
+  tfoot td b { color: var(--ink); font-weight: 500; }
+
+  /* Board (secondary view) */
+  .board { display: none; gap: 12px; padding: 16px 24px; overflow: auto; flex: 1; align-items: flex-start; }
+  .board.on { display: flex; }
+  .col { width: 240px; flex: 0 0 240px; }
+  .col h3 { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 4px 2px 8px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
+  .col h3 i { width: 8px; height: 8px; border-radius: 2px; }
+  .col h3 span { margin-left: auto; font: 11px var(--mono); color: var(--ink-3); }
+  .card { border: 1px solid var(--rule); border-radius: 6px; padding: 10px; margin-bottom: 8px; background: var(--paper); }
+  .card:hover { border-color: var(--rule-strong); }
+  .card .v { font: 12px var(--mono); margin-top: 6px; display: flex; justify-content: space-between; color: var(--ink-3); }
+  .card .v b { color: var(--ink); font-weight: 500; }
+
+  /* Peek panel */
+  .peek { position: absolute; top: 0; right: 0; bottom: 0; width: 420px; background: var(--paper); border-left: 1px solid var(--rule-strong); box-shadow: -24px 0 48px -24px rgba(0,0,0,.18); transform: translateX(100%); transition: transform .28s cubic-bezier(.16,1,.3,1); display: flex; flex-direction: column; z-index: 10; }
+  .peek.on { transform: none; }
+  .peek-head { padding: 16px 20px; border-bottom: 1px solid var(--rule); }
+  .peek-head .row1 { display: flex; justify-content: space-between; align-items: center; }
+  .peek h2 { font-size: 19px; letter-spacing: -0.02em; margin-top: 6px; }
+  .peek-body { overflow: auto; padding: 4px 20px 20px; }
+  .kv { display: grid; grid-template-columns: 120px 1fr; border-bottom: 1px solid var(--rule); }
+  .kv > div { padding: 9px 0; }
+  .kv .k { font: 11px var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; padding-top: 11px; }
+  .sec { font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); margin: 22px 0 10px; display: flex; gap: 8px; align-items: center; }
+  .sec::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  .tl { position: relative; padding-left: 18px; }
+  .tl::before { content: ""; position: absolute; left: 4px; top: 6px; bottom: 6px; width: 1px; background: var(--rule-strong); }
+  .tl-item { position: relative; padding: 0 0 14px; }
+  .tl-item::before { content: ""; position: absolute; left: -18px; top: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--paper); border: 1.5px solid var(--ink); }
+  .tl-item .m { font: 11px var(--mono); color: var(--ink-3); }
+  .note-box { border: 1px solid var(--rule-strong); border-radius: 6px; padding: 10px; color: var(--ink-3); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><b>Specter CRM</b></div>
+    <div class="search"><span>Search records…</span><span class="kbd">⌘K</span></div>
+    <div>
+      <div class="nav-label">Records</div>
+      <nav class="nav" id="nav-records"></nav>
+    </div>
+    <div>
+      <div class="nav-label">Saved views</div>
+      <nav class="nav" id="nav-views"></nav>
+    </div>
+    <div class="side-foot">Design 1 / 5 · Ledger</div>
+  </aside>
+
+  <main>
+    <div class="head">
+      <div class="crumb">RECORDS / DEALS</div>
+      <div class="title-row">
+        <h1 id="view-title">All open deals</h1>
+        <div style="display:flex;gap:8px"><button class="btn">Import</button><button class="btn primary">+ New deal</button></div>
+      </div>
+      <div class="tabs"><button class="tab on" data-tab="table">Table</button><button class="tab" data-tab="board">Board</button></div>
+    </div>
+    <div class="toolbar">
+      <span class="chip set">Status <b>is Open</b> ✕</span>
+      <span class="chip">+ Filter</span>
+      <span class="chip set" id="sort-chip">Sort <b>Value ↓</b></span>
+      <span class="grow"></span>
+      <span class="muted" style="font-size:12px">Group by</span>
+      <div class="seg" id="groupseg"><button class="on" data-g="stage">Stage</button><button data-g="none">None</button></div>
+    </div>
+    <div class="grid-wrap" id="gridwrap"><table id="grid"></table></div>
+    <div class="board" id="board"></div>
+
+    <section class="peek" id="peek">
+      <div class="peek-head">
+        <div class="row1"><span class="crumb">DEAL</span><button class="btn" id="peek-close">Close ⎋</button></div>
+        <h2 id="peek-title"></h2>
+      </div>
+      <div class="peek-body" id="peek-body"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const STAGES = [
+  { key: 'New Lead', color: 'var(--s-lead)' }, { key: 'Contacted', color: 'var(--s-contacted)' },
+  { key: 'Qualified', color: 'var(--s-qualified)' }, { key: 'Proposal Sent', color: 'var(--s-proposal)' },
+  { key: 'Won', color: 'var(--s-won)' }, { key: 'Lost', color: 'var(--s-lost)' },
+];
+const DEALS = [
+  { id: 1, name: 'After-hours call answering', stage: 'New Lead', value: 497, contact: 'Dana Whitfield', company: 'Harborline Plumbing', source: 'Referral', last: 2, next: null, notes: 'Misses calls after 5pm; owner answers from the truck.' },
+  { id: 2, name: 'Appointment reminders + recall', stage: 'Contacted', value: 794, contact: 'Marcus Ellery', company: 'Northgate Dental Group', source: 'Website', last: 9, next: null, notes: 'Two locations. No-show rate is the pain.' },
+  { id: 3, name: 'Review request automation', stage: 'Qualified', value: 297, contact: 'Priya Sandoval', company: 'Cedar & Pine Landscaping', source: 'Cold email', last: 1, next: 'Send proposal · Mon', notes: 'Wants more reviews before spring season.' },
+  { id: 4, name: 'Tenant request intake', stage: 'Proposal Sent', value: 1497, contact: 'Tom Okafor', company: 'Brightwater Property Mgmt', source: 'Referral', last: 12, next: 'Follow up · overdue 2d', notes: 'Maintenance requests arrive by text, email, and voicemail.' },
+  { id: 5, name: 'Storm-season lead capture', stage: 'Qualified', value: 997, contact: 'Jenna Kowalski', company: 'Summit Roofing Co.', source: 'Networking event', last: 0, next: 'Prep demo · Wed', notes: 'Inbound spikes after storms; calls go to voicemail.' },
+  { id: 6, name: 'Billing follow-up workflow', stage: 'Contacted', value: 497, contact: 'Grace Holloway', company: 'Northgate Dental Group', source: 'Website', last: 15, next: null, notes: 'Interested but wants to see a demo first.' },
+  { id: 7, name: 'New patient intake forms', stage: 'Won', value: 1297, contact: 'Luis Ferreira', company: 'Lumen Physical Therapy', source: 'Website', last: 3, next: 'Kickoff call · Oct 2', notes: 'Signed. Kickoff scheduled.' },
+  { id: 8, name: 'Owner reporting dashboard', stage: 'Lost', value: 1997, contact: 'Owen Brandt', company: 'Brightwater Property Mgmt', source: 'Referral', last: 20, next: 'Check in · Dec 26', notes: 'Chose to wait until Q1 budget.' },
+];
+const TIMELINE = {
+  1: [['Call', 'Intro call. Busiest months are June to September.', '2 days ago']],
+  2: [['Email', 'Sent summary of the reminder workflow and pricing.', '9 days ago']],
+  3: [['Note', 'Competitors nearby have 3-4x the review count.', 'Yesterday']],
+  4: [['Call', 'Walked through current intake. 40+ requests a week.', '12 days ago'], ['Proposal', 'Proposal sent: $1,497.', '12 days ago']],
+  5: [['SMS', 'Confirmed demo for Thursday 10am.', 'Today']],
+  6: [['Email', 'Asked for a demo before deciding.', '15 days ago']],
+  7: [['Note', 'Contract signed. Needs EHR export format.', '3 days ago']],
+  8: [['Call', 'Not this quarter. Follow up in January.', '20 days ago']],
+};
+const COLD_AFTER = 7;
+const views = { open: d => !['Won', 'Lost'].includes(d.stage), cold: d => !['Won', 'Lost'].includes(d.stage) && d.last >= COLD_AFTER, all: () => true };
+let state = { view: 'open', group: 'stage', sortDesc: true, selected: new Set(), tab: 'table' };
+
+const $ = s => document.querySelector(s);
+const money = n => '$' + n.toLocaleString('en-US');
+const initials = n => n.split(' ').map(p => p[0]).join('');
+const stageColor = k => STAGES.find(s => s.key === k).color;
+const ago = d => d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d + 'd ago';
+
+function renderNav() {
+  const open = DEALS.filter(views.open).length;
+  $('#nav-records').innerHTML = [['Deals', open, true], ['People', 8], ['Companies', 6], ['Tasks', 5]]
+    .map(([l, n, on]) => `<a class="${on ? 'on' : ''}">${l}<span class="n">${n}</span></a>`).join('');
+  const vs = [['open', 'All open deals', 'var(--ink)'], ['cold', 'Going cold', 'var(--cold)'], ['all', 'Everything', 'var(--ink-4)']];
+  $('#nav-views').innerHTML = vs.map(([k, l, c]) =>
+    `<a data-view="${k}" class="${state.view === k ? 'on' : ''}"><span><span class="dot" style="background:${c}"></span>${l}</span><span class="n">${DEALS.filter(views[k]).length}</span></a>`).join('');
+  document.querySelectorAll('[data-view]').forEach(a => a.onclick = () => { state.view = a.dataset.view; $('#view-title').textContent = a.textContent.replace(/\d+$/, ''); render(); });
+}
+
+function rowHtml(d) {
+  const cold = !['Won', 'Lost'].includes(d.stage) && d.last >= COLD_AFTER;
+  return `<tr class="row ${state.selected.has(d.id) ? 'sel' : ''}" data-id="${d.id}">
+    <td><input type="checkbox" ${state.selected.has(d.id) ? 'checked' : ''} data-check="${d.id}"></td>
+    <td><div class="deal"><span contenteditable spellcheck="false" data-edit-name="${d.id}">${d.name}</span><button class="open-peek" data-peek="${d.id}">Open ↗</button></div></td>
+    <td><span class="stage"><i style="background:${stageColor(d.stage)}"></i><select class="stage-sel" data-stage="${d.id}">${STAGES.map(s => `<option ${s.key === d.stage ? 'selected' : ''}>${s.key}</option>`).join('')}</select></span></td>
+    <td class="num"><span class="val" contenteditable spellcheck="false" data-edit-val="${d.id}">${money(d.value)}</span></td>
+    <td><span class="person"><span class="av">${initials(d.contact)}</span>${d.contact}</span></td>
+    <td class="muted">${d.company}</td>
+    <td>${d.next ? (d.next.includes('overdue') ? `<span class="cold">${d.next}</span>` : d.next) : '<span class="next-none">No next step</span>'}</td>
+    <td class="mono ${cold ? 'cold' : 'muted'}">${ago(d.last)}</td>
+    <td class="muted">${d.source}</td>
+  </tr>`;
+}
+
+function renderGrid() {
+  let rows = DEALS.filter(views[state.view]).sort((a, b) => state.sortDesc ? b.value - a.value : a.value - b.value);
+  const head = `<thead><tr><th><input type="checkbox" id="checkall"></th><th><span class="t">Aa</span>Deal</th><th><span class="t">◉</span>Stage</th><th class="num" id="sort-val"><span class="t">#</span>Value ${state.sortDesc ? '↓' : '↑'}</th><th><span class="t">@</span>Contact</th><th><span class="t">▢</span>Company</th><th><span class="t">→</span>Next step</th><th><span class="t">◷</span>Last touch</th><th><span class="t">↳</span>Source</th></tr></thead>`;
+  let body = '';
+  if (state.group === 'stage') {
+    for (const s of STAGES) {
+      const g = rows.filter(r => r.stage === s.key);
+      if (!g.length) continue;
+      body += `<tr class="group"><td></td><td colspan="8"><span class="stage"><i style="background:${s.color}"></i></span><b>${s.key}</b><span class="sum">${g.length} · ${money(g.reduce((t, r) => t + r.value, 0))}</span></td></tr>`;
+      body += g.map(rowHtml).join('');
+    }
+  } else body = rows.map(rowHtml).join('');
+  const total = rows.reduce((t, r) => t + r.value, 0);
+  const foot = `<tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td></td><td class="num">Sum <b>${money(total)}</b></td><td>Avg <b>${money(Math.round(total / (rows.length || 1)))}</b></td><td colspan="4">${state.selected.size ? `<b>${state.selected.size}</b> selected` : ''}</td></tr></tfoot>`;
+  $('#grid').innerHTML = head + '<tbody>' + body + '</tbody>' + foot;
+
+  document.querySelectorAll('[data-check]').forEach(c => c.onchange = () => { const id = +c.dataset.check; c.checked ? state.selected.add(id) : state.selected.delete(id); renderGrid(); });
+  $('#checkall').onchange = e => { rows.forEach(r => e.target.checked ? state.selected.add(r.id) : state.selected.delete(r.id)); renderGrid(); };
+  document.querySelectorAll('[data-stage]').forEach(s => s.onchange = () => { DEALS.find(d => d.id === +s.dataset.stage).stage = s.value; render(); });
+  document.querySelectorAll('[data-edit-val]').forEach(el => el.onblur = () => { const n = parseInt(el.textContent.replace(/[^0-9]/g, '')) || 0; DEALS.find(d => d.id === +el.dataset.editVal).value = n; render(); });
+  document.querySelectorAll('[data-edit-name]').forEach(el => el.onblur = () => { DEALS.find(d => d.id === +el.dataset.editName).name = el.textContent.trim(); });
+  document.querySelectorAll('[contenteditable]').forEach(el => el.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+  document.querySelectorAll('[data-peek]').forEach(b => b.onclick = () => openPeek(+b.dataset.peek));
+  $('#sort-val').onclick = () => { state.sortDesc = !state.sortDesc; $('#sort-chip').innerHTML = `Sort <b>Value ${state.sortDesc ? '↓' : '↑'}</b>`; renderGrid(); };
+}
+
+function renderBoard() {
+  $('#board').innerHTML = STAGES.map(s => {
+    const g = DEALS.filter(d => d.stage === s.key);
+    return `<div class="col"><h3><i style="background:${s.color}"></i>${s.key}<span>${money(g.reduce((t, r) => t + r.value, 0))}</span></h3>${g.map(d => `<div class="card" data-peek="${d.id}"><div style="font-weight:500">${d.name}</div><div class="muted" style="font-size:12px">${d.company}</div><div class="v"><b>${money(d.value)}</b><span>${ago(d.last)}</span></div></div>`).join('')}</div>`;
+  }).join('');
+  document.querySelectorAll('#board [data-peek]').forEach(b => b.onclick = () => openPeek(+b.dataset.peek));
+}
+
+function openPeek(id) {
+  const d = DEALS.find(x => x.id === id);
+  $('#peek-title').textContent = d.name;
+  const kv = [['Stage', `<span class="stage"><i style="background:${stageColor(d.stage)}"></i>${d.stage}</span>`], ['Value', `<span class="mono">${money(d.value)}</span>`], ['Contact', `<span class="person"><span class="av">${initials(d.contact)}</span>${d.contact}</span>`], ['Company', d.company], ['Source', d.source], ['Next step', d.next || '<span class="next-none">No next step</span>'], ['Last touch', `<span class="mono">${ago(d.last)}</span>`]];
+  $('#peek-body').innerHTML = kv.map(([k, v]) => `<div class="kv"><div class="k">${k}</div><div>${v}</div></div>`).join('') +
+    `<div class="sec">Notes</div><p style="color:var(--ink-2)">${d.notes}</p>` +
+    `<div class="sec">Timeline</div><div class="tl">${(TIMELINE[id] || []).map(([t, b, w]) => `<div class="tl-item"><div class="m">${t.toUpperCase()} · ${w}</div><div>${b}</div></div>`).join('')}</div>` +
+    `<div class="note-box">Write a note, or type / to log a call…</div>`;
+  $('#peek').classList.add('on');
+}
+$('#peek-close').onclick = () => $('#peek').classList.remove('on');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#peek').classList.remove('on'); });
+document.querySelectorAll('#groupseg button').forEach(b => b.onclick = () => { state.group = b.dataset.g; document.querySelectorAll('#groupseg button').forEach(x => x.classList.toggle('on', x === b)); renderGrid(); });
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  state.tab = t.dataset.tab; document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+  $('#gridwrap').style.display = state.tab === 'table' ? '' : 'none'; $('#board').classList.toggle('on', state.tab === 'board');
+  document.querySelector('.toolbar').style.display = state.tab === 'table' ? '' : 'none';
+});
+function render() { renderNav(); renderGrid(); renderBoard(); }
+render();
+</script>
+</body>
+</html>

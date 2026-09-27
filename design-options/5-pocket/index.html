@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Specter CRM · Pocket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  /* ── Pocket: built for the owner in the truck ────────────────────────────
+     Mobile-first field utility. Earth tones, a single rust accent, heavy
+     condensed numerals. Every primary action is a 56px thumb target at the
+     bottom of the screen. Logging a call is two taps. */
+  :root {
+    --sand: #e8e6e1; --sand-2: #dcd9d1; --card: #f5f4f0; --dirt: #2c2a26; --dirt-2: #45423c;
+    --rust: #a63c06; --rust-2: #c2530f; --olive: #3a4032; --ok: #4d7c0f; --late: #b91c1c;
+    --display: 'Anton', sans-serif; --body: 'Manrope', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font: 500 15px/1.4 var(--body); color: var(--dirt); background: var(--dirt); min-height: 100vh; display: grid; place-items: center; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  .noise { position: fixed; inset: 0; pointer-events: none; opacity: .09; z-index: 100; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+  /* Desktop framing */
+  .stage { display: grid; grid-template-columns: 340px 390px; gap: 70px; align-items: center; padding: 40px; }
+  .pitch { color: var(--sand); }
+  .pitch h1 { font: 400 64px/.9 var(--display); text-transform: uppercase; letter-spacing: .01em; }
+  .pitch h1 span { color: var(--rust-2); }
+  .pitch p { margin-top: 18px; color: rgba(232,230,225,.7); font-weight: 400; line-height: 1.6; }
+  .pitch ul { margin-top: 18px; list-style: none; border-left: 3px solid var(--rust); padding-left: 16px; color: rgba(232,230,225,.85); }
+  .pitch li { padding: 4px 0; font-size: 14px; }
+  .pitch .tag { display: inline-block; margin-top: 26px; font: 700 11px var(--body); letter-spacing: .16em; text-transform: uppercase; color: rgba(232,230,225,.45); }
+  .phone { width: 390px; height: 844px; border-radius: 54px; background: #111; padding: 12px; box-shadow: 0 40px 90px rgba(0,0,0,.55), inset 0 0 0 2px #3a3a3a; }
+  .screen { width: 100%; height: 100%; border-radius: 44px; overflow: hidden; background: var(--sand); position: relative; display: flex; flex-direction: column; }
+  @media (max-width: 820px) {
+    body { display: block; background: var(--sand); }
+    .stage { display: block; padding: 0; } .pitch { display: none; }
+    .phone { width: 100%; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; background: none; }
+    .screen { border-radius: 0; } .sbar { display: none; }
+  }
+
+  .sbar { height: 46px; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; font-weight: 700; font-size: 14px; flex: 0 0 auto; }
+  .sbar .island { width: 118px; height: 32px; background: #111; border-radius: 20px; }
+  .scroll { flex: 1; overflow-y: auto; padding: 6px 18px 120px; scrollbar-width: none; }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  .kicker { font: 800 11px var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--rust); }
+  .h-big { font: 400 50px/.92 var(--display); text-transform: uppercase; margin: 6px 0 4px; letter-spacing: .005em; }
+  .sub { color: var(--dirt-2); font-size: 14px; }
+  .totals { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 16px 0 18px; border-top: 2px solid var(--dirt); border-bottom: 2px solid var(--dirt); }
+  .totals div { padding: 10px 0; text-align: center; border-right: 1px dashed rgba(44,42,38,.3); }
+  .totals div:last-child { border: 0; }
+  .totals b { display: block; font: 400 26px var(--display); }
+  .totals span { font: 700 10px var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--dirt-2); }
+
+  .job { background: var(--card); border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 0 rgba(0,0,0,.06), 0 8px 18px -12px rgba(44,42,38,.5); position: relative; overflow: hidden; transition: transform .3s, opacity .3s; }
+  .job::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--rust); }
+  .job.late::before { background: var(--late); }
+  .job-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .job h3 { font: 800 19px/1.15 var(--body); letter-spacing: -.01em; }
+  .job .co { color: var(--dirt-2); font-size: 13.5px; margin-top: 2px; }
+  .job .amt { font: 400 24px var(--display); }
+  .why { margin: 12px 0 14px; padding: 10px 12px; background: var(--sand); border-radius: 10px; font-size: 14px; font-weight: 600; }
+  .why.late { background: #f6dcd6; color: var(--late); }
+  .acts { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 8px; }
+  .acts button { height: 56px; border-radius: 14px; font: 800 15px var(--body); letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--sand-2); }
+  .acts button.call { background: var(--rust); color: #fff; }
+  .acts button:active { transform: scale(.97); }
+  .stamp { position: absolute; right: 14px; top: 50%; transform: translateY(-50%) rotate(-8deg); border: 3px solid var(--ok); color: var(--ok); font: 400 22px var(--display); padding: 2px 12px; border-radius: 6px; text-transform: uppercase; background: rgba(245,244,240,.92); animation: stamp .35s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes stamp { from { transform: translateY(-50%) rotate(-8deg) scale(2.2); opacity: 0; } }
+  .job.logged .acts, .job.logged .why { opacity: .3; pointer-events: none; }
+
+  .section-t { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 0 10px; }
+  .section-t h2 { font: 400 22px var(--display); text-transform: uppercase; }
+  .section-t span { font-size: 13px; color: var(--dirt-2); font-weight: 700; }
+  .mini { display: flex; align-items: center; gap: 12px; padding: 13px 4px; border-bottom: 1px solid rgba(44,42,38,.14); }
+  .av { width: 44px; height: 44px; border-radius: 50%; background: var(--olive); color: var(--sand); display: grid; place-items: center; font: 800 15px var(--body); flex: 0 0 auto; }
+  .mini .t { flex: 1; min-width: 0; }
+  .mini .t b { display: block; font-weight: 800; }
+  .mini .t span { font-size: 13px; color: var(--dirt-2); }
+  .round { width: 48px; height: 48px; border-radius: 50%; background: var(--dirt); color: var(--sand); display: grid; place-items: center; font-size: 18px; flex: 0 0 auto; }
+
+  /* Pipeline screen */
+  .chips { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 14px -18px 16px; padding: 0 18px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips button { scroll-snap-align: start; flex: 0 0 auto; height: 44px; padding: 0 16px; border-radius: 22px; border: 2px solid var(--dirt); font-weight: 800; font-size: 14px; }
+  .chips button.on { background: var(--dirt); color: var(--sand); }
+  .chips button small { font: 400 16px var(--display); margin-left: 6px; }
+
+  /* Tab bar + FAB */
+  .tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; background: var(--dirt); display: grid; grid-template-columns: 1fr 1fr 80px 1fr 1fr; align-items: start; padding: 12px 8px 0; border-radius: 26px 26px 0 0; }
+  .tabs button { color: rgba(232,230,225,.5); font: 800 10.5px var(--body); letter-spacing: .1em; text-transform: uppercase; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 56px; justify-content: center; }
+  .tabs button i { font-style: normal; font-size: 20px; }
+  .tabs button.on { color: var(--sand); }
+  .fab { width: 68px; height: 68px; border-radius: 50%; background: var(--rust); color: #fff !important; font-size: 34px !important; margin: -30px auto 0; box-shadow: 0 10px 24px rgba(166,60,6,.55), 0 0 0 6px var(--sand); }
+
+  /* Bottom sheet */
+  .shade { position: absolute; inset: 0; background: rgba(20,19,17,.5); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 5; }
+  .shade.on { opacity: 1; pointer-events: auto; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--card); border-radius: 28px 28px 0 0; padding: 12px 18px 30px; transform: translateY(105%); transition: transform .35s cubic-bezier(.16,1,.3,1); z-index: 6; }
+  .sheet.on { transform: none; }
+  .grab { width: 44px; height: 5px; border-radius: 3px; background: var(--sand-2); margin: 0 auto 14px; }
+  .sheet h4 { font: 400 32px/.95 var(--display); text-transform: uppercase; }
+  .sheet .sub { margin: 4px 0 16px; }
+  .outcomes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .outcomes button { height: 72px; border-radius: 16px; background: var(--sand); font: 800 15px var(--body); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 2px solid transparent; }
+  .outcomes button i { font-style: normal; font-size: 20px; }
+  .outcomes button:active { border-color: var(--dirt); }
+  .outcomes .booked { background: var(--olive); color: var(--sand); }
+  .voice { margin-top: 12px; width: 100%; height: 56px; border-radius: 16px; border: 2px dashed var(--dirt-2); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .voice .rec { width: 14px; height: 14px; border-radius: 50%; background: var(--late); }
+  .voice.on .rec { animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { transform: scale(1.5); opacity: .5; } }
+  .field { background: var(--sand); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+  .field label { font: 800 10.5px var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--dirt-2); display: block; }
+  .field input { width: 100%; border: 0; background: none; font: 700 18px var(--body); color: var(--dirt); outline: none; margin-top: 2px; }
+  .save { width: 100%; height: 58px; border-radius: 16px; background: var(--rust); color: #fff; font: 800 16px var(--body); letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
+  .srcs { display: flex; gap: 8px; margin: 4px 0 12px; flex-wrap: wrap; }
+  .srcs button { height: 40px; padding: 0 14px; border-radius: 20px; background: var(--sand); font-weight: 700; font-size: 13.5px; }
+  .srcs button.on { background: var(--dirt); color: var(--sand); }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="stage">
+  <div class="pitch">
+    <h1>Run it<br>from the <span>truck.</span></h1>
+    <p>A CRM for the owner who is never at a desk. It opens to the calls you need to make today, and every button sits where your thumb already is.</p>
+    <ul><li>Call, text, or log from the card</li><li>Two taps to log how a call went</li><li>Voice notes instead of typing</li><li>Add a lead in ten seconds with the big +</li></ul>
+    <span class="tag">Design 5 / 5 · Pocket</span>
+  </div>
+
+  <div class="phone"><div class="screen">
+    <div class="sbar"><span>9:41</span><span class="island"></span><span>◢ ▮</span></div>
+    <div class="scroll" id="scroll"></div>
+
+    <nav class="tabs">
+      <button class="on" data-tab="today"><i>◉</i>Today</button>
+      <button data-tab="pipe"><i>▤</i>Jobs</button>
+      <button class="fab" id="fab">+</button>
+      <button data-tab="people"><i>☺</i>People</button>
+      <button data-tab="more"><i>≡</i>More</button>
+    </nav>
+
+    <div class="shade" id="shade"></div>
+    <div class="sheet" id="sheet"></div>
+  </div></div>
+</div>
+
+<script>
+const PEOPLE = [
+  { id: 1, name: 'Tom Okafor', co: 'Brightwater Property Mgmt', deal: 'Tenant request intake', v: 1497, stage: 'Proposal', why: 'Follow up on the proposal · 2 days late', late: true, today: true },
+  { id: 2, name: 'Grace Holloway', co: 'Northgate Dental Group', deal: 'Billing follow-up', v: 497, stage: 'Contacted', why: 'She asked for a demo · 15 days ago', today: true },
+  { id: 3, name: 'Marcus Ellery', co: 'Northgate Dental Group', deal: 'Appointment reminders', v: 794, stage: 'Contacted', why: 'Check in about no-shows · 9 days quiet', today: true },
+  { id: 4, name: 'Dana Whitfield', co: 'Harborline Plumbing', deal: 'After-hours answering', v: 497, stage: 'New', why: 'Send a recap of your call' },
+  { id: 5, name: 'Priya Sandoval', co: 'Cedar & Pine Landscaping', deal: 'Review requests', v: 297, stage: 'Quoted', why: 'Proposal due Monday' },
+  { id: 6, name: 'Jenna Kowalski', co: 'Summit Roofing Co.', deal: 'Storm-season leads', v: 997, stage: 'Quoted', why: 'Demo Thursday 10am' },
+  { id: 7, name: 'Luis Ferreira', co: 'Lumen Physical Therapy', deal: 'Patient intake forms', v: 1297, stage: 'Won', why: 'Kickoff Oct 2' },
+  { id: 8, name: 'Owen Brandt', co: 'Brightwater Property Mgmt', deal: 'Owner dashboard', v: 1997, stage: 'Lost', why: 'Check in after Q1 budget' },
+];
+const STAGES = ['New', 'Contacted', 'Quoted', 'Proposal', 'Won', 'Lost'];
+const $ = s => document.querySelector(s);
+const money = n => '$' + n.toLocaleString('en-US');
+const ini = n => n.split(' ').map(p => p[0]).join('');
+let tab = 'today', pipeStage = 'Contacted', calling = null;
+
+function today() {
+  const q = PEOPLE.filter(p => p.today);
+  const left = q.filter(p => !p.logged).length;
+  const open = PEOPLE.filter(p => !['Won', 'Lost'].includes(p.stage));
+  return `<div class="kicker">Sunday · Sep 27</div>
+    <div class="h-big">${left ? `${left} call${left > 1 ? 's' : ''}<br>to make` : 'All<br>caught up'}</div>
+    <div class="sub">Start at the top. The late one goes first.</div>
+    <div class="totals"><div><b>${money(open.reduce((t, p) => t + p.v, 0))}</b><span>Open</span></div><div><b>${open.length}</b><span>Jobs</span></div><div><b>$1,297</b><span>Won Sep</span></div></div>
+    ${q.map(p => `<article class="job ${p.late ? 'late' : ''} ${p.logged ? 'logged' : ''}">
+      <div class="job-top"><div><h3>${p.name}</h3><div class="co">${p.co}</div></div><div class="amt">${money(p.v)}</div></div>
+      <div class="why ${p.late ? 'late' : ''}">${p.why}</div>
+      <div class="acts"><button class="call" data-call="${p.id}">☎ Call</button><button>Text</button><button data-call="${p.id}">Log</button></div>
+      ${p.logged ? `<div class="stamp">${p.logged}</div>` : ''}
+    </article>`).join('')}
+    <div class="section-t"><h2>Later this week</h2><span>3</span></div>
+    ${PEOPLE.filter(p => ['Dana Whitfield', 'Priya Sandoval', 'Jenna Kowalski'].includes(p.name)).map(mini).join('')}`;
+}
+function mini(p) { return `<div class="mini"><span class="av">${ini(p.name)}</span><div class="t"><b>${p.name}</b><span>${p.why}</span></div><button class="round" data-call="${p.id}">☎</button></div>`; }
+function pipe() {
+  const g = PEOPLE.filter(p => p.stage === pipeStage);
+  return `<div class="kicker">Your jobs</div><div class="h-big">${money(g.reduce((t, p) => t + p.v, 0))}</div><div class="sub">${g.length} in ${pipeStage.toLowerCase()}</div>
+    <div class="chips">${STAGES.map(s => `<button class="${s === pipeStage ? 'on' : ''}" data-stage="${s}">${s}<small>${PEOPLE.filter(p => p.stage === s).length}</small></button>`).join('')}</div>
+    ${g.map(p => `<article class="job"><div class="job-top"><div><h3>${p.deal}</h3><div class="co">${p.name} · ${p.co}</div></div><div class="amt">${money(p.v)}</div></div><div class="why">${p.why}</div><div class="acts"><button class="call" data-call="${p.id}">☎ Call</button><button>Text</button><button>Move</button></div></article>`).join('') || '<p class="sub">Nothing here.</p>'}`;
+}
+function people() { return `<div class="kicker">Everyone</div><div class="h-big">People</div><div class="sub">${PEOPLE.length} contacts</div><div style="margin-top:12px">${[...PEOPLE].sort((a, b) => a.name.localeCompare(b.name)).map(p => mini({ ...p, why: p.co })).join('')}</div>`; }
+
+function render() {
+  $('#scroll').innerHTML = tab === 'today' ? today() : tab === 'pipe' ? pipe() : tab === 'people' ? people() : `<div class="h-big">More</div><p class="sub">Reports, settings, and import live here.</p>`;
+  document.querySelectorAll('[data-call]').forEach(b => b.onclick = () => openLog(+b.dataset.call));
+  document.querySelectorAll('[data-stage]').forEach(b => b.onclick = () => { pipeStage = b.dataset.stage; render(); });
+}
+function openSheet(html) { $('#sheet').innerHTML = '<div class="grab"></div>' + html; $('#sheet').classList.add('on'); $('#shade').classList.add('on'); }
+function closeSheet() { $('#sheet').classList.remove('on'); $('#shade').classList.remove('on'); }
+function openLog(id) {
+  calling = PEOPLE.find(p => p.id === id);
+  openSheet(`<h4>How'd it go<br>with ${calling.name.split(' ')[0]}?</h4><div class="sub">One tap logs it. The next step is set for you.</div>
+    <div class="outcomes">
+      <button class="booked" data-out="Booked"><i>✓</i>Booked it</button><button data-out="Call back"><i>↻</i>Call back</button>
+      <button data-out="No answer"><i>✕</i>No answer</button><button data-out="Not now"><i>—</i>Not interested</button>
+    </div>
+    <button class="voice" id="voice"><span class="rec"></span><span id="vtxt">Hold to add a voice note</span></button>`);
+  document.querySelectorAll('[data-out]').forEach(b => b.onclick = () => { calling.logged = b.dataset.out === 'No answer' ? 'No answer · retry Tue' : b.dataset.out; closeSheet(); render(); });
+  const v = $('#voice');
+  v.onpointerdown = () => { v.classList.add('on'); $('#vtxt').textContent = 'Recording… let go to save'; };
+  v.onpointerup = v.onpointerleave = () => { if (v.classList.contains('on')) { v.classList.remove('on'); $('#vtxt').textContent = 'Voice note saved · 0:07'; } };
+}
+$('#fab').onclick = () => {
+  openSheet(`<h4>New lead</h4><div class="sub">Ten seconds. Fill in the rest later.</div>
+  <div class="field"><label>Name</label><input placeholder="Who called?" /></div>
+  <div class="field"><label>Phone</label><input inputmode="tel" placeholder="(555) 010-…" /></div>
+  <div class="field"><label>What do they need?</label><input placeholder="Or hold the mic below" /></div>
+  <div class="srcs"><button class="on">Called in</button><button>Referral</button><button>Website</button><button>Job site</button></div>
+  <button class="save" id="save">Save lead</button>`);
+  $('#save').onclick = closeSheet;
+};
+$('#shade').onclick = closeSheet;
+document.querySelectorAll('.tabs [data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; document.querySelectorAll('.tabs [data-tab]').forEach(x => x.classList.toggle('on', x === b)); render(); $('#scroll').scrollTop = 0; });
+document.addEventListener('click', e => { if (e.target.closest('.srcs button')) { const p = e.target.closest('.srcs'); p.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === e.target)); } });
+render();
+</script>
+</body>
+</html>

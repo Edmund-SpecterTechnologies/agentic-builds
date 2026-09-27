@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CRM design options</title>
+<style>
+  body { font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; background: #f4f3ef; color: #1a1a18; margin: 0; padding: 48px 24px; }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 28px; letter-spacing: -.02em; margin: 0 0 4px; }
+  p.lede { color: #666; margin: 0 0 28px; }
+  a { display: grid; grid-template-columns: 44px 1fr auto; gap: 16px; align-items: center; background: #fff; border: 1px solid #e2e0da; border-radius: 10px; padding: 18px 20px; margin-bottom: 12px; color: inherit; text-decoration: none; transition: border-color .2s, transform .2s; }
+  a:hover { border-color: #1a1a18; transform: translateX(4px); }
+  .n { font: 600 22px ui-monospace, monospace; color: #999; }
+  b { font-size: 17px; }
+  small { display: block; color: #666; font-size: 13.5px; margin-top: 2px; }
+  .try { font: 12px ui-monospace, monospace; color: #888; text-align: right; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Five CRM directions</h1>
+  <p class="lede">Same demo data in all five, so only the design differs. Each is a clickable mockup. <b>Ledger was chosen</b> and is now the real interface in <code>crm/</code>. The research behind these is in <a href="README.md" style="display:inline;padding:0;border:0;background:none;margin:0">README.md</a>.</p>
+  <a href="1-ledger/index.html"><span class="n">1</span><span><b>Ledger ✓ chosen</b><small>The CRM as a spreadsheet you can trust. Dense table, inline editing, group-by, a side panel for detail. Like Attio or Folk.</small></span><span class="try">edit a value,<br>click Open ↗</span></a>
+  <a href="2-board/index.html"><span class="n">2</span><span><b>Board</b><small>Every deal needs a next step. Loud kanban, stalled deals flagged as rotting, drag a card to see Won and Lost appear. Like Pipedrive.</small></span><span class="try">drag a card,<br>+ Schedule</span></a>
+  <a href="3-today/index.html"><span class="n">3</span><span><b>Today</b><small>Opens to who needs you, not to a database. An editorial to-do list with the person's own words beside it. Like Close.</small></span><span class="try">tick items off,<br>click a row</span></a>
+  <a href="4-command/index.html"><span class="n">4</span><span><b>Command</b><small>Never touch the mouse. Warm dark, j/k to move, s to change stage, ⌘K for everything. Like Linear or Twenty.</small></span><span class="try">Ctrl+K, j/k, s,<br>then ?</span></a>
+  <a href="5-pocket/index.html"><span class="n">5</span><span><b>Pocket</b><small>Built for the owner in the truck. Phone-first, thumb-sized buttons, two taps to log a call, voice notes.</small></span><span class="try">tap Call,<br>tap +</span></a>
+</main>
+</body>
+</html>
