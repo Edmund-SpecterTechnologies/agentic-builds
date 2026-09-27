@@ -213,4 +213,6 @@ def delete_opportunity(opp_id: str):
         existing = conn.execute("SELECT id FROM opportunities WHERE id = ?", (opp_id,)).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Opportunity not found")
+        for table in ("tasks", "activities"):
+            conn.execute(f"UPDATE {table} SET opportunity_name = NULL WHERE opportunity_id = ?", (opp_id,))
         conn.execute("DELETE FROM opportunities WHERE id = ?", (opp_id,))

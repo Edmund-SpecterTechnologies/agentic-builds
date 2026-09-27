@@ -128,4 +128,5 @@ def delete_company(company_id: str):
             "UPDATE contacts SET company_id = NULL, company_name = NULL WHERE company_id = ?",
             (company_id,),
         )
+        conn.execute("UPDATE opportunities SET company_name = NULL WHERE company_id = ?", (company_id,))
         conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))

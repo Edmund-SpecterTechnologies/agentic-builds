@@ -148,4 +148,8 @@ def delete_contact(contact_id: str):
         existing = conn.execute("SELECT id FROM contacts WHERE id = ?", (contact_id,)).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Contact not found")
+        # The foreign keys null the ids; clear the stored names too, or linked
+        # deals, tasks, and activities keep showing someone who no longer exists.
+        for table in ("opportunities", "tasks", "activities"):
+            conn.execute(f"UPDATE {table} SET contact_name = NULL WHERE contact_id = ?", (contact_id,))
         conn.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))

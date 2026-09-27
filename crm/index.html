@@ -96,7 +96,9 @@
   .grid tfoot td { position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--rule-strong); height: 36px; font: 12px var(--mono); color: var(--ink-3); z-index: 2; }
   .grid tfoot b { color: var(--ink); font-weight: 500; }
   input[type=checkbox] { accent-color: var(--ink); width: 14px; height: 14px; cursor: pointer; }
-  .cell-main { display: flex; align-items: center; gap: 8px; }
+  .cell-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .cell-main > [contenteditable]:not(:focus), .cell-main > .person { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .cell-main > .open { flex: 0 0 auto; }
   [contenteditable] { outline: none; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; min-width: 20px; display: inline-block; }
   [contenteditable]:hover { box-shadow: inset 0 0 0 1px var(--rule-strong); }
   [contenteditable]:focus { box-shadow: 0 0 0 2px var(--focus); background: #fff; }
@@ -348,6 +350,7 @@ function renderDeals() {
   const rows = dealRows(); const showStatus = S.dealStatus === 'all'; const cols = showStatus ? 8 : 7;
   const emptyCrm = !S.deals.length && !S.contacts.length && !S.companies.length;
   if (!S.pipelines.length) { $('#body').innerHTML = `<div class="empty">No pipelines yet. Create one under <b>Pipelines</b>.</div>`; return; }
+  if (!p.stages.length) { $('#body').innerHTML = `<div class="empty">This pipeline has no stages yet. Add some under <b>Pipelines</b>, then deals can go in it.</div>`; return; }
   const row = d => {
     const st = stageOf(d.stage_id) || {}; const nt = nextTask(d); const lt = lastTouch(d);
     const ntHtml = nt ? `<span class="${nt.due_date && nt.due_date < todayISO() ? 'late' : ''}">${esc(nt.title)}${nt.due_date ? ' · ' + fmtDate(nt.due_date) : ''}</span>` : `<span class="none">No next step</span>`;
@@ -590,6 +593,7 @@ async function savePeek() {
     if (kind === 'deal') {
       data.monetary_value = parseFloat(data.monetary_value) || 0;
       if (!data.name?.trim()) return toast('A deal needs a name', true);
+      if (!data.stage_id) return toast('That pipeline has no stages yet. Add one under Pipelines first.', true);
       // Let the server keep status in step with Won/Lost stages: only send status
       // when the user actually changed it, and start new deals in Won/Lost closed.
       const rec = id && S.deals.find(x => x.id === id);
