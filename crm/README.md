@@ -148,6 +148,10 @@ A third review, run as repeated passes until only minor issues remained, found:
   Tab skips, and the row "Open" buttons were invisible when focused. Every clickable item now takes
   focus, Enter or Space activates it, and focus is always visible.
 - **A list that hit the 5,000-record load limit looked complete.** It now says so on screen.
+- **Screen readers couldn't name most controls.** An axe-core audit (WCAG 2.1 A and AA) of every
+  screen found 74 unnamed checkboxes, dropdowns, and fields, and record-panel labels not tied to their
+  inputs. Each control now has a name like "Stage for Tenant request intake", and the audit reports
+  zero violations.
 
 ## Tests
 

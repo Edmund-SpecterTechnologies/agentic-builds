@@ -82,7 +82,7 @@
   .grid th { position: sticky; top: 0; background: var(--paper); z-index: 2; font: 500 11px var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; height: 34px; user-select: none; }
   .grid th[data-sort] { cursor: pointer; }
   .grid th[data-sort]:hover { color: var(--ink); }
-  .grid th .t { font: 10px var(--mono); color: var(--ink-4); margin-right: 6px; text-transform: none; letter-spacing: 0; }
+  .grid th .t { font: 10px var(--mono); color: var(--ink-3); margin-right: 6px; text-transform: none; letter-spacing: 0; }
   .grid .num { text-align: right; }
   .grid td:first-child, .grid th:first-child { position: sticky; left: 0; background: inherit; z-index: 1; width: 40px; min-width: 40px; max-width: 40px; text-align: center; padding: 0; }
   .grid th:first-child { z-index: 3; background: var(--paper); }
@@ -221,7 +221,7 @@
   </main>
 </div>
 <div class="veil" id="veil" data-act="close-pal"></div>
-<div class="pal" id="pal"><input id="pal-q" placeholder="Search people, companies, and deals, or type a command…" autocomplete="off" /><div class="pal-list" id="pal-list"></div></div>
+<div class="pal" id="pal"><input id="pal-q" aria-label="Search records and commands" placeholder="Search people, companies, and deals, or type a command…" autocomplete="off" /><div class="pal-list" id="pal-list"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -316,7 +316,7 @@ function header(crumb, title, buttons = '', tabs = '') {
 const seg = (act, cur, opts) => `<div class="seg">${opts.map(([v, l]) => `<button data-act="${act}" data-val="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 const sortTh = (entity, key, label, icon, num) => {
   const [k, dir] = S.sort[entity];
-  return `<th data-sort="${entity}:${key}" class="${num ? 'num' : ''}"><span class="t">${icon}</span>${label}${k === key ? (dir > 0 ? ' ↑' : ' ↓') : ''}</th>`;
+  return `<th data-sort="${entity}:${key}" class="${num ? 'num' : ''}"><span class="t" aria-hidden="true">${icon}</span>${label}${k === key ? (dir > 0 ? ' ↑' : ' ↓') : ''}</th>`;
 };
 function sortRows(entity, rows, get) {
   const [k, dir] = S.sort[entity];
@@ -345,9 +345,9 @@ function renderDeals() {
     `<button class="btn" data-act="save-view">Save view</button><button class="btn primary" data-act="new" data-kind="deal">+ New deal</button>`,
     `<div class="tabs"><button class="tab ${S.dealTab === 'table' ? 'on' : ''}" data-act="deal-tab" data-val="table">Table</button><button class="tab ${S.dealTab === 'board' ? 'on' : ''}" data-act="deal-tab" data-val="board">Board</button></div>`);
   $('#toolbar').innerHTML = `<div class="toolbar">
-    ${S.pipelines.length > 1 ? `<select class="pick" data-change="pipeline">${S.pipelines.map(x => `<option value="${x.id}" ${x.id === S.pipelineId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : ''}
+    ${S.pipelines.length > 1 ? `<select class="pick" data-change="pipeline" aria-label="Pipeline">${S.pipelines.map(x => `<option value="${x.id}" ${x.id === S.pipelineId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : ''}
     ${seg('deal-status', S.dealStatus, [['open', 'Open'], ['won', 'Won'], ['lost', 'Lost'], ['all', 'All']])}
-    <input class="filter" data-input="q" placeholder="Filter deals…" value="${esc(S.q)}" />
+    <input class="filter" data-input="q" aria-label="Filter deals" placeholder="Filter deals…" value="${esc(S.q)}" />
     <span class="grow"></span>
     ${fullNote('deals')}${S.dealTab === 'table' ? `<span class="muted" style="font-size:12px">Group by</span>${seg('group', S.group, [['stage', 'Stage'], ['none', 'None']])}` : ''}
   </div>`;
@@ -360,9 +360,9 @@ function renderDeals() {
     const st = stageOf(d.stage_id) || {}; const nt = nextTask(d); const lt = lastTouch(d);
     const ntHtml = nt ? `<span class="${nt.due_date && nt.due_date < todayISO() ? 'late' : ''}">${esc(nt.title)}${nt.due_date ? ' · ' + fmtDate(nt.due_date) : ''}</span>` : `<span class="none">No next step</span>`;
     return `<tr class="row ${S.selected.has(d.id) ? 'sel' : ''}">
-      <td><input type="checkbox" data-check="${d.id}" ${S.selected.has(d.id) ? 'checked' : ''}></td>
+      <td><input type="checkbox" data-check="${d.id}" aria-label="Select ${esc(d.name)}" ${S.selected.has(d.id) ? 'checked' : ''}></td>
       <td><div class="cell-main"><span contenteditable spellcheck="false" data-edit="deal:${d.id}:name">${esc(d.name)}</span><button class="open" data-act="peek" data-kind="deal" data-id="${d.id}">Open ↗</button></div></td>
-      <td><span class="stage"><i style="background:${color(st.color)}"></i><select class="inline" data-change="stage" data-id="${d.id}">${p.stages.map(s => `<option value="${s.id}" ${s.id === d.stage_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></span></td>
+      <td><span class="stage"><i style="background:${color(st.color)}"></i><select class="inline" data-change="stage" data-id="${d.id}" aria-label="Stage for ${esc(d.name)}">${p.stages.map(s => `<option value="${s.id}" ${s.id === d.stage_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></span></td>
       <td class="num"><span class="mono" contenteditable spellcheck="false" data-edit="deal:${d.id}:monetary_value">${money(d.monetary_value)}</span></td>
       <td>${d.contact_name ? `<span class="person"><span class="av">${esc(initials(d.contact_name))}</span>${esc(d.contact_name)}</span>` : '<span class="none">—</span>'}</td>
       <td class="muted">${esc(d.company_name || '')}</td>
@@ -383,9 +383,9 @@ function renderDeals() {
   } else body = rows.filter(r => drawn.has(r.id)).map(row).join('');
   body += moreRow(rows, cols);
   const total = rows.reduce((t, r) => t + +r.monetary_value, 0);
-  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="deals" ${allSel(rows) ? 'checked' : ''}></th>
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="deals" aria-label="Select all deals" ${allSel(rows) ? 'checked' : ''}></th>
       ${sortTh('deals', 'name', 'Deal', 'Aa')}${sortTh('deals', 'stage_name', 'Stage', '◉')}${sortTh('deals', 'monetary_value', 'Value', '#', true)}
-      ${sortTh('deals', 'contact_name', 'Contact', '@')}${sortTh('deals', 'company_name', 'Company', '▢')}<th><span class="t">→</span>Next step</th>${sortTh('deals', 'last', 'Last touch', '◷')}${showStatus ? '<th><span class="t">●</span>Status</th>' : ''}</tr></thead>
+      ${sortTh('deals', 'contact_name', 'Contact', '@')}${sortTh('deals', 'company_name', 'Company', '▢')}<th><span class="t" aria-hidden="true">→</span>Next step</th>${sortTh('deals', 'last', 'Last touch', '◷')}${showStatus ? '<th><span class="t" aria-hidden="true">●</span>Status</th>' : ''}</tr></thead>
     <tbody>${body}</tbody>
     <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td></td><td class="num">Sum <b>${money(total)}</b></td><td>Avg <b>${money(Math.round(total / (rows.length || 1)))}</b></td><td colspan="${cols - 4}"></td></tr></tfoot></table>`
     : emptyCrm ? `<div class="empty" style="line-height:1.7"><b>This CRM is empty.</b> Create a deal with <b>+ New deal</b>, or get fictional demo data:<br>
@@ -411,10 +411,10 @@ function peopleRows() {
 }
 function renderPeople() {
   header('Records / People', 'People', `<button class="btn" data-act="save-view">Save view</button><button class="btn primary" data-act="new" data-kind="person">+ New person</button>`);
-  $('#toolbar').innerHTML = `<div class="toolbar">${seg('people-status', S.peopleStatus, [['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']])}<input class="filter" data-input="q" placeholder="Filter people…" value="${esc(S.q)}" />${fullNote('people')}</div>`;
+  $('#toolbar').innerHTML = `<div class="toolbar">${seg('people-status', S.peopleStatus, [['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']])}<input class="filter" data-input="q" aria-label="Filter people" placeholder="Filter people…" value="${esc(S.q)}" />${fullNote('people')}</div>`;
   const rows = peopleRows();
-  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="people" ${allSel(rows) ? 'checked' : ''}></th>${sortTh('people', 'name', 'Name', 'Aa')}${sortTh('people', 'email', 'Email', '@')}${sortTh('people', 'phone', 'Phone', '☏')}${sortTh('people', 'company_name', 'Company', '▢')}<th><span class="t">#</span>Tags</th>${sortTh('people', 'source', 'Source', '↳')}${sortTh('people', 'status', 'Status', '●')}${sortTh('people', 'created_at', 'Added', '◷')}</tr></thead>
-    <tbody>${capped(rows).map(c => `<tr class="row ${S.selected.has(c.id) ? 'sel' : ''}"><td><input type="checkbox" data-check="${c.id}" ${S.selected.has(c.id) ? 'checked' : ''}></td>
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="people" aria-label="Select all people" ${allSel(rows) ? 'checked' : ''}></th>${sortTh('people', 'name', 'Name', 'Aa')}${sortTh('people', 'email', 'Email', '@')}${sortTh('people', 'phone', 'Phone', '☏')}${sortTh('people', 'company_name', 'Company', '▢')}<th><span class="t" aria-hidden="true">#</span>Tags</th>${sortTh('people', 'source', 'Source', '↳')}${sortTh('people', 'status', 'Status', '●')}${sortTh('people', 'created_at', 'Added', '◷')}</tr></thead>
+    <tbody>${capped(rows).map(c => `<tr class="row ${S.selected.has(c.id) ? 'sel' : ''}"><td><input type="checkbox" data-check="${c.id}" aria-label="Select ${esc(contactName(c))}" ${S.selected.has(c.id) ? 'checked' : ''}></td>
       <td><div class="cell-main"><span class="person"><span class="av">${esc(initials(contactName(c)))}</span>${esc(contactName(c))}</span><button class="open" data-act="peek" data-kind="person" data-id="${c.id}">Open ↗</button></div></td>
       <td><span contenteditable spellcheck="false" data-edit="person:${c.id}:email">${esc(c.email || '')}</span></td>
       <td class="mono"><span contenteditable spellcheck="false" data-edit="person:${c.id}:phone">${esc(c.phone || '')}</span></td>
@@ -427,12 +427,12 @@ function renderPeople() {
 }
 function renderCompanies() {
   header('Records / Companies', 'Companies', `<button class="btn primary" data-act="new" data-kind="company">+ New company</button>`);
-  $('#toolbar').innerHTML = `<div class="toolbar"><input class="filter" data-input="q" placeholder="Filter companies…" value="${esc(S.q)}" />${fullNote('companies')}</div>`;
+  $('#toolbar').innerHTML = `<div class="toolbar"><input class="filter" data-input="q" aria-label="Filter companies" placeholder="Filter companies…" value="${esc(S.q)}" />${fullNote('companies')}</div>`;
   const q = S.q.toLowerCase();
   let rows = S.companies.filter(c => !q || [c.name, c.industry, c.website].join(' ').toLowerCase().includes(q));
   const openValue = c => S.openValueAt.get(c.id) || 0;
   rows = sortRows('companies', rows, (c, k) => k === 'people' ? (S.peopleAt.get(c.id) || 0) : k === 'open' ? openValue(c) : (c[k] || '').toString().toLowerCase());
-  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th>${sortTh('companies', 'name', 'Company', 'Aa')}${sortTh('companies', 'industry', 'Industry', '▤')}${sortTh('companies', 'people', 'People', '@', true)}${sortTh('companies', 'open', 'Open pipeline', '#', true)}<th><span class="t">↗</span>Website</th>${sortTh('companies', 'phone', 'Phone', '☏')}</tr></thead>
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th>${sortTh('companies', 'name', 'Company', 'Aa')}${sortTh('companies', 'industry', 'Industry', '▤')}${sortTh('companies', 'people', 'People', '@', true)}${sortTh('companies', 'open', 'Open pipeline', '#', true)}<th><span class="t" aria-hidden="true">↗</span>Website</th>${sortTh('companies', 'phone', 'Phone', '☏')}</tr></thead>
     <tbody>${rows.map(c => `<tr class="row"><td></td>
       <td><div class="cell-main"><span contenteditable spellcheck="false" data-edit="company:${c.id}:name" style="font-weight:500">${esc(c.name)}</span><button class="open" data-act="peek" data-kind="company" data-id="${c.id}">Open ↗</button></div></td>
       <td><span contenteditable spellcheck="false" data-edit="company:${c.id}:industry">${esc(c.industry || '')}</span></td>
@@ -449,9 +449,9 @@ function renderTasks() {
   const t0 = todayISO();
   const rows = S.tasks.filter(t => S.taskFilter === 'all' || t.status === S.taskFilter).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'));
   const groups = [['Overdue', t => t.status === 'open' && t.due_date && t.due_date < t0], ['Today', t => t.status === 'open' && t.due_date === t0], ['Upcoming', t => t.status === 'open' && t.due_date > t0], ['No date', t => t.status === 'open' && !t.due_date], ['Done', t => t.status === 'done']];
-  const line = t => `<tr class="row"><td><input type="checkbox" data-toggle-task="${t.id}" ${t.status === 'done' ? 'checked' : ''}></td>
+  const line = t => `<tr class="row"><td><input type="checkbox" data-toggle-task="${t.id}" aria-label="Mark ${esc(t.title)} done" ${t.status === 'done' ? 'checked' : ''}></td>
     <td><div class="cell-main"><span contenteditable spellcheck="false" data-edit="task:${t.id}:title" style="${t.status === 'done' ? 'text-decoration:line-through;color:var(--ink-3)' : ''}">${esc(t.title)}</span><button class="open" data-act="peek" data-kind="task" data-id="${t.id}">Open ↗</button></div></td>
-    <td><input type="date" class="pick" data-change="task-due" data-id="${t.id}" value="${esc(t.due_date || '')}"></td>
+    <td><input type="date" class="pick" data-change="task-due" data-id="${t.id}" aria-label="Due date for ${esc(t.title)}" value="${esc(t.due_date || '')}"></td>
     <td>${t.opportunity_name ? `<a class="muted" data-act="peek" data-kind="deal" data-id="${t.opportunity_id}" style="cursor:pointer">${esc(t.opportunity_name)}</a>` : ''}</td>
     <td>${t.contact_name ? `<span class="person"><span class="av">${esc(initials(t.contact_name))}</span>${esc(t.contact_name)}</span>` : ''}</td>
     <td class="muted" style="max-width:280px;overflow:hidden;text-overflow:ellipsis">${esc(t.notes || '')}</td></tr>`;
@@ -463,14 +463,14 @@ function renderTasks() {
     body += `<tr class="group"><td></td><td colspan="5"><b class="${name === 'Overdue' ? 'late' : ''}">${name}</b><span class="mono muted">${g.length}</span></td></tr>` + shownRows.map(line).join('');
   }
   body += moreRow(ordered, 5);
-  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th>✓</th><th><span class="t">Aa</span>Task</th><th><span class="t">◷</span>Due</th><th><span class="t">$</span>Deal</th><th><span class="t">@</span>Person</th><th><span class="t">¶</span>Notes</th></tr></thead><tbody>${body}</tbody></table>`
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th>✓</th><th><span class="t" aria-hidden="true">Aa</span>Task</th><th><span class="t" aria-hidden="true">◷</span>Due</th><th><span class="t" aria-hidden="true">$</span>Deal</th><th><span class="t" aria-hidden="true">@</span>Person</th><th><span class="t" aria-hidden="true">¶</span>Notes</th></tr></thead><tbody>${body}</tbody></table>`
     : `<div class="empty">${S.taskFilter === 'open' ? 'Nothing open. ' : ''}Add one with <b>+ New task</b>.</div>`;
 }
 function renderActivity() {
   header('Records / Activity', 'Activity');
   $('#toolbar').innerHTML = `<div class="toolbar">${seg('act-type', S.actType, [['', 'All'], ['call', 'Calls'], ['email', 'Email'], ['sms', 'SMS'], ['note', 'Notes']])}${fullNote('activity')}</div>`;
   const rows = S.acts.filter(a => !S.actType || a.type === S.actType).sort((a, b) => b.created_at.localeCompare(a.created_at));
-  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th><th><span class="t">¶</span>What</th><th><span class="t">▤</span>Type</th><th><span class="t">@</span>Person</th><th><span class="t">$</span>Deal</th><th><span class="t">◷</span>When</th></tr></thead>
+  $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th><th><span class="t" aria-hidden="true">¶</span>What</th><th><span class="t" aria-hidden="true">▤</span>Type</th><th><span class="t" aria-hidden="true">@</span>Person</th><th><span class="t" aria-hidden="true">$</span>Deal</th><th><span class="t" aria-hidden="true">◷</span>When</th></tr></thead>
     <tbody>${capped(rows).map(a => `<tr class="row"><td><button class="muted" title="Delete" data-act="del-act" data-id="${a.id}">✕</button></td>
       <td style="white-space:normal;max-width:420px">${esc(a.body || '')}</td><td><span class="pill">${esc(a.type)}</span></td>
       <td>${a.contact_id ? `<a data-act="peek" data-kind="person" data-id="${a.contact_id}" style="cursor:pointer">${esc(a.contact_name || '')}</a>` : ''}</td>
@@ -506,12 +506,12 @@ async function renderReports() {
 function renderSettings() {
   header('Workspace / Pipelines', 'Pipelines', `<button class="btn primary" data-act="new-pipeline">+ New pipeline</button>`);
   $('#body').innerHTML = S.pipelines.map(p => `<div class="pipe">
-      <div class="pipe-head"><input value="${esc(p.name)}" data-change="pipe-name" data-id="${p.id}" /><span class="muted mono">${S.deals.filter(d => d.pipeline_id === p.id).length} deals</span><span class="grow" style="flex:1"></span><button class="btn sm danger" data-act="del-pipeline" data-id="${p.id}">Delete pipeline</button></div>
-      ${p.stages.map((s, i) => `<div class="stage-row"><input type="color" value="${color(s.color)}" data-change="stage-color" data-pid="${p.id}" data-id="${s.id}" title="Stage colour">
-        <input type="text" value="${esc(s.name)}" data-change="stage-name" data-pid="${p.id}" data-id="${s.id}">
+      <div class="pipe-head"><input value="${esc(p.name)}" data-change="pipe-name" data-id="${p.id}" aria-label="Pipeline name" /><span class="muted mono">${S.deals.filter(d => d.pipeline_id === p.id).length} deals</span><span class="grow" style="flex:1"></span><button class="btn sm danger" data-act="del-pipeline" data-id="${p.id}">Delete pipeline</button></div>
+      ${p.stages.map((s, i) => `<div class="stage-row"><input type="color" value="${color(s.color)}" data-change="stage-color" data-pid="${p.id}" data-id="${s.id}" title="Stage colour" aria-label="Colour for ${esc(s.name)}">
+        <input type="text" value="${esc(s.name)}" data-change="stage-name" data-pid="${p.id}" data-id="${s.id}" aria-label="Stage name">
         <span class="mono muted">${S.deals.filter(d => d.stage_id === s.id).length} deals</span>
-        <span><button class="btn sm" data-act="move-stage" data-pid="${p.id}" data-i="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>↑</button> <button class="btn sm" data-act="move-stage" data-pid="${p.id}" data-i="${i}" data-dir="1" ${i === p.stages.length - 1 ? 'disabled' : ''}>↓</button> <button class="btn sm danger" data-act="del-stage" data-pid="${p.id}" data-id="${s.id}">✕</button></span></div>`).join('')}
-      <div class="stage-row"><span></span><input type="text" placeholder="+ Add a stage and press Enter" data-add-stage="${p.id}"></div>
+        <span><button class="btn sm" data-act="move-stage" data-pid="${p.id}" data-i="${i}" data-dir="-1" aria-label="Move ${esc(s.name)} up" ${i === 0 ? 'disabled' : ''}>↑</button> <button class="btn sm" data-act="move-stage" data-pid="${p.id}" data-i="${i}" data-dir="1" aria-label="Move ${esc(s.name)} down" ${i === p.stages.length - 1 ? 'disabled' : ''}>↓</button> <button class="btn sm danger" data-act="del-stage" data-pid="${p.id}" data-id="${s.id}" aria-label="Delete stage ${esc(s.name)}">✕</button></span></div>`).join('')}
+      <div class="stage-row"><span></span><input type="text" placeholder="+ Add a stage and press Enter" data-add-stage="${p.id}" aria-label="Add a stage to ${esc(p.name)}"></div>
     </div>`).join('') || `<div class="empty">No pipelines. Create one with <b>+ New pipeline</b>.</div>`;
 }
 
@@ -519,14 +519,14 @@ function renderBulk(entity) {
   const n = S.selected.size;
   if (!n) { $('#bulk').innerHTML = ''; return; }
   $('#bulk').innerHTML = `<div class="bulk"><span>${n} selected</span>
-    ${entity === 'deals' ? `<select data-change="bulk-stage"><option value="">Move to stage…</option>${pipeline().stages.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>` : ''}
+    ${entity === 'deals' ? `<select data-change="bulk-stage" aria-label="Move selected deals to a stage"><option value="">Move to stage…</option>${pipeline().stages.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>` : ''}
     <button data-act="bulk-delete" data-entity="${entity}">Delete</button><button data-act="bulk-clear">Clear</button></div>`;
 }
 
 /* ── Peek: record panel for view, edit, and create ─────────────────────────── */
 const opt = (list, cur, label, blank = '— None —') => `<option value="">${blank}</option>` + list.map(x => `<option value="${x.id}" ${x.id === cur ? 'selected' : ''}>${esc(label(x))}</option>`).join('');
 function fields(kind, r) {
-  const f = (name, label, input) => `<div class="fld"><label>${label}</label>${input}</div>`;
+  const f = (name, label, input) => `<div class="fld"><label for="f-${name}">${label}</label>${input.replace(/^<(input|select|textarea)/, `<$1 id="f-${name}"`)}</div>`;
   const txt = (name, label, type = 'text') => f(name, label, `<input name="${name}" type="${type}" value="${esc(r[name] ?? '')}" ${type === 'number' ? 'step="any"' : ''}>`);
   const area = (name, label) => f(name, label, `<textarea name="${name}">${esc(r[name] ?? '')}</textarea>`);
   if (kind === 'deal') {
@@ -586,7 +586,7 @@ function renderPeek() {
 function timeline(acts, link) {
   acts = [...acts].sort((a, b) => b.created_at.localeCompare(a.created_at));
   return `<div class="sec">Timeline</div>
-    <div class="composer"><textarea id="act-body" placeholder="Log a call, email, text, or note…"></textarea>
+    <div class="composer"><textarea id="act-body" aria-label="Activity to log" placeholder="Log a call, email, text, or note…"></textarea>
       <div class="row2">${seg('act-kind', S.actKind || 'call', [['call', 'Call'], ['email', 'Email'], ['sms', 'SMS'], ['note', 'Note']])}<button class="btn sm primary" data-act="log" data-link='${esc(JSON.stringify(link))}'>Log</button></div></div>
     <div class="tl" style="margin-top:14px">${acts.map(a => `<div class="tl-item"><div class="m"><span>${esc(a.type.toUpperCase())} · ${fmtDate(a.created_at)} · ${ago(daysSince(a.created_at))}</span><button data-act="del-act" data-id="${a.id}" title="Delete">✕</button></div><div>${esc(a.body || '')}</div></div>`).join('') || '<p class="muted">Nothing logged yet.</p>'}</div>`;
 }
