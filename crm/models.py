@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel as _PydanticModel, model_validator
 
 
@@ -19,6 +19,13 @@ class BaseModel(_PydanticModel):
         return data
 
 
+# Closed sets of values. The page styles and filters on these, so the API refuses anything else.
+ContactStatus = Literal["active", "inactive"]
+DealStatus = Literal["open", "won", "lost"]
+TaskStatus = Literal["open", "done"]
+ActivityType = Literal["call", "email", "sms", "note"]
+SavedViewEntity = Literal["contacts", "opportunities", "tasks"]
+
 # ── Contacts ─────────────────────────────────────────────────────────────────
 
 class ContactCreate(BaseModel):
@@ -29,7 +36,7 @@ class ContactCreate(BaseModel):
     company_id: Optional[str] = None
     tags: list[str] = []
     source: Optional[str] = None
-    status: str = "active"
+    status: ContactStatus = "active"
     assigned_to: Optional[str] = None
     notes: Optional[str] = None
 
@@ -42,7 +49,7 @@ class ContactUpdate(BaseModel):
     company_id: Optional[str] = None
     tags: Optional[list[str]] = None
     source: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[ContactStatus] = None
     assigned_to: Optional[str] = None
     notes: Optional[str] = None
 
@@ -152,7 +159,7 @@ class OpportunityCreate(BaseModel):
     company_id: Optional[str] = None
     pipeline_id: str
     stage_id: str
-    status: str = "open"
+    status: DealStatus = "open"
     monetary_value: float = 0
     close_date: Optional[str] = None
     assigned_to: Optional[str] = None
@@ -165,7 +172,7 @@ class OpportunityUpdate(BaseModel):
     company_id: Optional[str] = None
     pipeline_id: Optional[str] = None
     stage_id: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[DealStatus] = None
     monetary_value: Optional[float] = None
     close_date: Optional[str] = None
     assigned_to: Optional[str] = None
@@ -199,7 +206,7 @@ class OpportunityResponse(BaseModel):
 # ── Activities ────────────────────────────────────────────────────────────────
 
 class ActivityCreate(BaseModel):
-    type: str  # 'call' | 'note' | 'email' | 'sms'
+    type: ActivityType
     body: Optional[str] = None
     contact_id: Optional[str] = None
     opportunity_id: Optional[str] = None
@@ -230,7 +237,7 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     due_date: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[TaskStatus] = None
     contact_id: Optional[str] = None
     opportunity_id: Optional[str] = None
     assigned_to: Optional[str] = None
@@ -256,7 +263,7 @@ class TaskResponse(BaseModel):
 
 class SavedViewCreate(BaseModel):
     name: str
-    entity: str  # 'contacts' | 'opportunities' | 'tasks'
+    entity: SavedViewEntity
     filters: dict = {}
 
 

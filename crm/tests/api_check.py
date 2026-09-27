@@ -89,4 +89,12 @@ t2 = call("PUT", f"/api/tasks/{t['id']}", {"due_date": ""}, expect=200); print("
 for path in [f"/api/tasks/{t['id']}", f"/api/opportunities/{op['id']}", f"/api/contacts/{ct['id']}", f"/api/companies/{co['id']}"]:
     call("DELETE", path, expect=204)
 print("FAILURES (unlink):", fails or "none")
+# closed value sets: markup or unknown values in status/type fields are refused, not stored
+pl = call("GET", "/api/pipelines")[0]; st = {x["name"]: x["id"] for x in pl["stages"]}
+call("POST", "/api/opportunities", {"name": "X", "pipeline_id": pl["id"], "stage_id": st["New Lead"], "status": "<img src=x onerror=alert(1)>"}, expect=422)
+call("POST", "/api/activities", {"type": "<script>", "body": "x"}, expect=422)
+call("POST", "/api/saved-views", {"name": "V", "entity": "nonsense", "filters": {}}, expect=422)
+ok = call("POST", "/api/opportunities", {"name": "Status ok", "pipeline_id": pl["id"], "stage_id": st["New Lead"], "status": "won"}, expect=201)
+call("DELETE", f"/api/opportunities/{ok['id']}", expect=204)
+print("FAILURES (validation):", fails or "none")
 sys.exit(1 if fails else 0)

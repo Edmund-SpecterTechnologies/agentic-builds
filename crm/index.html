@@ -360,7 +360,7 @@ function renderDeals() {
       <td class="muted">${esc(d.company_name || '')}</td>
       <td>${ntHtml}</td>
       <td class="mono ${isCold(d) ? 'cold' : 'muted'}">${ago(lt)}</td>
-      ${showStatus ? `<td>${d.status === 'open' ? '<span class="pill">open</span>' : `<span class="pill ${d.status}">${d.status}</span>`}</td>` : ''}
+      ${showStatus ? `<td>${d.status === 'open' ? '<span class="pill">open</span>' : `<span class="pill ${['won', 'lost'].includes(d.status) ? d.status : ''}">${esc(d.status)}</span>`}</td>` : ''}
     </tr>`;
   };
   let body = '';
@@ -685,7 +685,7 @@ async function onClick(e) {
   else if (a === 'apply-view') {
     if (e.target.closest('.x')) return;
     const v = S.views.find(x => x.id === d.id); if (!v) return;
-    const f = v.filters || {}; go(f.view || 'deals', { q: f.q || '', dealStatus: f.dealStatus || 'open', pipelineId: f.pipelineId || S.pipelineId, group: f.group || 'stage', coldOnly: !!f.coldOnly, dealTab: f.dealTab || 'table', peopleStatus: f.peopleStatus || '', taskFilter: f.taskFilter || 'open' });
+    const f = v.filters || {}; go(['deals', 'people', 'tasks'].includes(f.view) ? f.view : 'deals', { q: f.q || '', dealStatus: f.dealStatus || 'open', pipelineId: f.pipelineId || S.pipelineId, group: f.group || 'stage', coldOnly: !!f.coldOnly, dealTab: f.dealTab || 'table', peopleStatus: f.peopleStatus || '', taskFilter: f.taskFilter || 'open' });
   }
   else if (a === 'del-view') { e.stopPropagation(); if (!confirm('Delete this saved view?')) return; await api('/api/saved-views/' + d.id, 'DELETE'); await refresh(); }
   else if (a === 'bulk-clear') { S.selected = new Set(); render(); }
