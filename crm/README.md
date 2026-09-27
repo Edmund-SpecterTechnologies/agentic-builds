@@ -139,11 +139,12 @@ python crm/tests/ui_check.py       # pip install playwright && playwright instal
 
 - **`api_check.py`** calls every endpoint, including each review fix: status following Won/Lost,
   renames propagating, blank links unlinking, bad references returning 400, and both attack guards.
-- **`ui_check.py`** drives a real browser through 24 steps with every non-local request blocked:
+- **`ui_check.py`** drives a real browser through 27 steps with every non-local request blocked:
   every view, inline edits, stage changes, the record panel, logging activity, creating and
   unlinking records, board drag-and-drop into Won, bulk moves, tasks, Ctrl+K, saved views, pipeline
-  settings, reports, and deletion. It fails on any console error or failed request, not only on a
-  failed step.
+  settings, reports, deletion, and three regressions from review (cents surviving an edit, letters
+  refused in a value cell, Escape cancelling). It fails on any console error or failed request, not
+  only on a failed step. The regression steps were checked to fail against the page before the fix.
 
 Both exit non-zero on failure. That was checked, not assumed: both fail with no server running,
 and the UI check fails on an already-used database.
@@ -154,3 +155,6 @@ and the UI check fails on an already-used database.
   status set by hand in the record panel.
 - "Going cold" uses a fixed 7-day threshold.
 - The board scrolls sideways once a pipeline has more stages than fit on screen.
+- The page loads up to 5,000 records of each type and draws 500 rows at a time (with "Show all"),
+  which keeps a 3,000-deal table under a quarter of a second to switch to. Counts and totals always
+  cover every loaded row.

@@ -19,6 +19,12 @@ def api(path):
     return json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PORT}" + path).read())
 
 
+def put(path, body):
+    req = urllib.request.Request(f"http://127.0.0.1:{PORT}" + path, method="PUT", data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json", "Origin": f"http://127.0.0.1:{PORT}"})
+    return json.loads(urllib.request.urlopen(req).read())
+
+
 def deal(name):
     return [d for d in api("/api/opportunities?limit=999") if d["name"] == name][0]
 
@@ -225,6 +231,45 @@ with sync_playwright() as p:
         pg.wait_for_timeout(600)
         assert "open pipeline" in pg.locator("#body").inner_text().lower()
     step("reports render", t_reports)
+
+    def value_cell(name):
+        side("Deals")
+        pg.get_by_role("button", name="All", exact=True).click()
+        pg.wait_for_timeout(300)
+        return pg.locator(f"[data-edit='deal:{deal(name)['id']}:monetary_value']")
+
+    def t_cents():
+        put(f"/api/opportunities/{deal('Storm-season lead capture')['id']}", {"monetary_value": 997.5})
+        pg.reload()
+        pg.wait_for_timeout(900)
+        cell = value_cell("Storm-season lead capture")
+        assert cell.inner_text() == "$997.50", cell.inner_text()
+        cell.click()
+        pg.locator("h1").click()
+        pg.wait_for_timeout(600)
+        assert deal("Storm-season lead capture")["monetary_value"] == 997.5
+    step("a value with cents survives a click in and out", t_cents)
+
+    def t_letters():
+        cell = value_cell("Storm-season lead capture")
+        cell.click()
+        pg.keyboard.press("Control+a")
+        pg.keyboard.type("abc")
+        pg.keyboard.press("Enter")
+        pg.wait_for_timeout(600)
+        assert deal("Storm-season lead capture")["monetary_value"] == 997.5
+    step("letters in a value cell are refused", t_letters)
+
+    def t_escape():
+        cell = value_cell("Storm-season lead capture")
+        cell.click()
+        pg.keyboard.press("Control+a")
+        pg.keyboard.type("1")
+        pg.keyboard.press("Escape")
+        pg.wait_for_timeout(600)
+        assert deal("Storm-season lead capture")["monetary_value"] == 997.5
+        assert cell.inner_text() == "$997.50", cell.inner_text()
+    step("Escape cancels an inline edit", t_escape)
 
     def t_delete():
         side("Deals")

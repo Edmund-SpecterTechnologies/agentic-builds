@@ -225,26 +225,33 @@
 /* ── Data layer ────────────────────────────────────────────────────────────── */
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const money = n => '$' + Math.round(+n || 0).toLocaleString('en-US');
+const money = n => { const v = +n || 0; return '$' + v.toLocaleString('en-US', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }); };
 const initials = n => (n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
 const todayISO = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const daysSince = iso => iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)) : null;
 const ago = d => d == null ? '—' : d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d + 'd ago';
 const fmtDate = iso => iso ? new Date(iso.length === 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: iso.slice(0, 4) === String(new Date().getFullYear()) ? undefined : 'numeric' }) : '';
 const COLD_DAYS = 7;
+const ROW_CAP = 500;
+const capped = rows => S.showAll ? rows : rows.slice(0, ROW_CAP);
+const moreRow = (rows, span) => rows.length > ROW_CAP && !S.showAll ? `<tr class="group"><td></td><td colspan="${span}">Showing ${ROW_CAP} of ${rows.length.toLocaleString('en-US')}. <a data-act="show-all" style="cursor:pointer;text-decoration:underline">Show all</a></td></tr>` : '';
 // Stage colours go into style attributes, so only a real hex colour is allowed through.
 const color = c => /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#9ca3af';
 
+// An error the user has already seen as a toast. Only these are swallowed by event handlers.
+const shown = err => Object.assign(err, { shown: true });
 async function api(path, method = 'GET', body) {
   const opt = { method, headers: {} };
   if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
-  const r = await fetch(path, opt);
+  let r;
+  try { r = await fetch(path, opt); }
+  catch (e) { toast('Can’t reach the CRM server. Is it still running?', true); throw shown(e); }
   if (r.status === 204) return null;
   const data = await r.json().catch(() => null);
   if (!r.ok) {
     const d = data && data.detail;
     const msg = typeof d === 'string' ? d : Array.isArray(d) ? d.map(x => `${(x.loc || []).slice(-1)[0]}: ${x.msg}`).join('; ') : r.statusText;
-    toast(msg, true); throw new Error(msg);
+    toast(msg, true); throw shown(new Error(msg));
   }
   return data;
 }
@@ -253,7 +260,7 @@ const S = {
   view: 'deals', pipelines: [], pipelineId: null, deals: [], contacts: [], companies: [], tasks: [], acts: [], views: [],
   dealStatus: 'open', dealTab: 'table', group: 'stage', coldOnly: false, q: '', peopleStatus: '', taskFilter: 'open', actType: '',
   sort: { deals: ['monetary_value', -1], people: ['created_at', -1], companies: ['name', 1] },
-  selected: new Set(), peek: null, saving: false,
+  selected: new Set(), peek: null, saving: false, showAll: false,
 };
 
 async function loadAll() {
@@ -262,6 +269,16 @@ async function loadAll() {
     api('/api/companies?limit=5000'), api('/api/tasks?limit=5000'), api('/api/activities?limit=5000'), api('/api/saved-views'),
   ]);
   Object.assign(S, { pipelines: p, deals: d, contacts: c, companies: co, tasks: t, acts: a, views: v });
+  // Index once per load: last activity per deal, next open task per deal, and per-company rollups.
+  S.lastActAt = new Map(); S.nextTaskOf = new Map(); S.peopleAt = new Map(); S.openValueAt = new Map();
+  for (const x of a) if (x.opportunity_id && !(S.lastActAt.get(x.opportunity_id) >= x.created_at)) S.lastActAt.set(x.opportunity_id, x.created_at);
+  for (const x of t) {
+    if (!x.opportunity_id || x.status !== 'open') continue;
+    const cur = S.nextTaskOf.get(x.opportunity_id);
+    if (!cur || (x.due_date || '9999') < (cur.due_date || '9999')) S.nextTaskOf.set(x.opportunity_id, x);
+  }
+  for (const x of c) if (x.company_id) S.peopleAt.set(x.company_id, (S.peopleAt.get(x.company_id) || 0) + 1);
+  for (const x of d) if (x.company_id && x.status === 'open') S.openValueAt.set(x.company_id, (S.openValueAt.get(x.company_id) || 0) + +x.monetary_value);
   if (!S.pipelines.find(x => x.id === S.pipelineId)) S.pipelineId = S.pipelines[0]?.id || null;
 }
 async function refresh() { await loadAll(); render(); if (S.peek && S.peek.id) renderPeek(); }
@@ -269,13 +286,10 @@ async function refresh() { await loadAll(); render(); if (S.peek && S.peek.id) r
 const pipeline = () => S.pipelines.find(p => p.id === S.pipelineId) || { stages: [] };
 const stageOf = id => S.pipelines.flatMap(p => p.stages).find(s => s.id === id);
 const contactName = c => [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || '(no name)';
-const lastTouch = d => {
-  const acts = S.acts.filter(a => a.opportunity_id === d.id).map(a => a.created_at).sort();
-  return daysSince(acts.length ? acts[acts.length - 1] : d.updated_at);
-};
+const lastTouch = d => daysSince(S.lastActAt.get(d.id) || d.updated_at);
 const isCold = d => d.status === 'open' && lastTouch(d) >= COLD_DAYS;
 const allSel = rows => rows.length > 0 && rows.every(r => S.selected.has(r.id));
-const nextTask = d => S.tasks.filter(t => t.opportunity_id === d.id && t.status === 'open').sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))[0];
+const nextTask = d => S.nextTaskOf.get(d.id);
 
 /* ── Shell ─────────────────────────────────────────────────────────────────── */
 function renderNav() {
@@ -305,7 +319,8 @@ function sortRows(entity, rows, get) {
 function render() {
   renderNav();
   $('#toolbar').innerHTML = ''; $('#bulk').innerHTML = '';
-  ({ deals: renderDeals, people: renderPeople, companies: renderCompanies, tasks: renderTasks, activity: renderActivity, reports: renderReports, settings: renderSettings })[S.view]();
+  const out = ({ deals: renderDeals, people: renderPeople, companies: renderCompanies, tasks: renderTasks, activity: renderActivity, reports: renderReports, settings: renderSettings })[S.view]();
+  if (out && out.catch) out.catch(quiet);
 }
 
 /* ── Deals ─────────────────────────────────────────────────────────────────── */
@@ -349,19 +364,22 @@ function renderDeals() {
     </tr>`;
   };
   let body = '';
+  const drawn = new Set(capped(S.group === 'stage' ? p.stages.flatMap(s => rows.filter(r => r.stage_id === s.id)) : rows).map(r => r.id));
   if (S.group === 'stage') {
     for (const s of p.stages) {
       const g = rows.filter(r => r.stage_id === s.id);
       if (!g.length) continue;
-      body += `<tr class="group"><td></td><td colspan="${cols}"><span class="stage"><i style="background:${color(s.color)}"></i></span><b>${esc(s.name)}</b><span class="mono muted">${g.length} · ${money(g.reduce((t, r) => t + +r.monetary_value, 0))}</span></td></tr>` + g.map(row).join('');
+      const shownRows = g.filter(r => drawn.has(r.id)); if (!shownRows.length) continue;
+      body += `<tr class="group"><td></td><td colspan="${cols}"><span class="stage"><i style="background:${color(s.color)}"></i></span><b>${esc(s.name)}</b><span class="mono muted">${g.length} · ${money(g.reduce((t, r) => t + +r.monetary_value, 0))}</span></td></tr>` + shownRows.map(row).join('');
     }
-  } else body = rows.map(row).join('');
+  } else body = rows.filter(r => drawn.has(r.id)).map(row).join('');
+  body += moreRow(rows, cols);
   const total = rows.reduce((t, r) => t + +r.monetary_value, 0);
   $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="deals" ${allSel(rows) ? 'checked' : ''}></th>
       ${sortTh('deals', 'name', 'Deal', 'Aa')}${sortTh('deals', 'stage_name', 'Stage', '◉')}${sortTh('deals', 'monetary_value', 'Value', '#', true)}
       ${sortTh('deals', 'contact_name', 'Contact', '@')}${sortTh('deals', 'company_name', 'Company', '▢')}<th><span class="t">→</span>Next step</th>${sortTh('deals', 'last', 'Last touch', '◷')}${showStatus ? '<th><span class="t">●</span>Status</th>' : ''}</tr></thead>
     <tbody>${body}</tbody>
-    <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td></td><td class="num">Sum <b>${money(total)}</b></td><td>Avg <b>${money(total / (rows.length || 1))}</b></td><td colspan="${cols - 4}"></td></tr></tfoot></table>`
+    <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td></td><td class="num">Sum <b>${money(total)}</b></td><td>Avg <b>${money(Math.round(total / (rows.length || 1)))}</b></td><td colspan="${cols - 4}"></td></tr></tfoot></table>`
     : emptyCrm ? `<div class="empty" style="line-height:1.7"><b>This CRM is empty.</b> Create a deal with <b>+ New deal</b>, or get fictional demo data:<br>
         stop the server, delete <span class="mono">crm/crm.db</span>, and run the launcher again. It will offer the demo data.</div>`
     : `<div class="empty">No deals match. ${S.q || S.coldOnly || S.dealStatus !== 'open' ? 'Try clearing the filter.' : 'Create one with <b>+ New deal</b>.'}</div>`;
@@ -388,13 +406,13 @@ function renderPeople() {
   $('#toolbar').innerHTML = `<div class="toolbar">${seg('people-status', S.peopleStatus, [['', 'All'], ['active', 'Active'], ['inactive', 'Inactive']])}<input class="filter" data-input="q" placeholder="Filter people…" value="${esc(S.q)}" /></div>`;
   const rows = peopleRows();
   $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th><input type="checkbox" data-checkall="people" ${allSel(rows) ? 'checked' : ''}></th>${sortTh('people', 'name', 'Name', 'Aa')}${sortTh('people', 'email', 'Email', '@')}${sortTh('people', 'phone', 'Phone', '☏')}${sortTh('people', 'company_name', 'Company', '▢')}<th><span class="t">#</span>Tags</th>${sortTh('people', 'source', 'Source', '↳')}${sortTh('people', 'status', 'Status', '●')}${sortTh('people', 'created_at', 'Added', '◷')}</tr></thead>
-    <tbody>${rows.map(c => `<tr class="row ${S.selected.has(c.id) ? 'sel' : ''}"><td><input type="checkbox" data-check="${c.id}" ${S.selected.has(c.id) ? 'checked' : ''}></td>
+    <tbody>${capped(rows).map(c => `<tr class="row ${S.selected.has(c.id) ? 'sel' : ''}"><td><input type="checkbox" data-check="${c.id}" ${S.selected.has(c.id) ? 'checked' : ''}></td>
       <td><div class="cell-main"><span class="person"><span class="av">${esc(initials(contactName(c)))}</span>${esc(contactName(c))}</span><button class="open" data-act="peek" data-kind="person" data-id="${c.id}">Open ↗</button></div></td>
       <td><span contenteditable spellcheck="false" data-edit="person:${c.id}:email">${esc(c.email || '')}</span></td>
       <td class="mono"><span contenteditable spellcheck="false" data-edit="person:${c.id}:phone">${esc(c.phone || '')}</span></td>
       <td class="muted">${esc(c.company_name || '')}</td>
       <td>${(c.tags || []).map(t => `<span class="pill">${esc(t)}</span>`).join(' ')}</td>
-      <td class="muted">${esc(c.source || '')}</td><td>${esc(c.status || '')}</td><td class="mono muted">${fmtDate(c.created_at)}</td></tr>`).join('')}</tbody>
+      <td class="muted">${esc(c.source || '')}</td><td>${esc(c.status || '')}</td><td class="mono muted">${fmtDate(c.created_at)}</td></tr>`).join('')}${moreRow(rows, 8)}</tbody>
     <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td colspan="7"></td></tr></tfoot></table>`
     : `<div class="empty">No people match. Add one with <b>+ New person</b>.</div>`;
   renderBulk('people');
@@ -404,13 +422,13 @@ function renderCompanies() {
   $('#toolbar').innerHTML = `<div class="toolbar"><input class="filter" data-input="q" placeholder="Filter companies…" value="${esc(S.q)}" /></div>`;
   const q = S.q.toLowerCase();
   let rows = S.companies.filter(c => !q || [c.name, c.industry, c.website].join(' ').toLowerCase().includes(q));
-  const openValue = c => S.deals.filter(d => d.company_id === c.id && d.status === 'open').reduce((t, d) => t + +d.monetary_value, 0);
-  rows = sortRows('companies', rows, (c, k) => k === 'people' ? S.contacts.filter(x => x.company_id === c.id).length : k === 'open' ? openValue(c) : (c[k] || '').toString().toLowerCase());
+  const openValue = c => S.openValueAt.get(c.id) || 0;
+  rows = sortRows('companies', rows, (c, k) => k === 'people' ? (S.peopleAt.get(c.id) || 0) : k === 'open' ? openValue(c) : (c[k] || '').toString().toLowerCase());
   $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th>${sortTh('companies', 'name', 'Company', 'Aa')}${sortTh('companies', 'industry', 'Industry', '▤')}${sortTh('companies', 'people', 'People', '@', true)}${sortTh('companies', 'open', 'Open pipeline', '#', true)}<th><span class="t">↗</span>Website</th>${sortTh('companies', 'phone', 'Phone', '☏')}</tr></thead>
     <tbody>${rows.map(c => `<tr class="row"><td></td>
       <td><div class="cell-main"><span contenteditable spellcheck="false" data-edit="company:${c.id}:name" style="font-weight:500">${esc(c.name)}</span><button class="open" data-act="peek" data-kind="company" data-id="${c.id}">Open ↗</button></div></td>
       <td><span contenteditable spellcheck="false" data-edit="company:${c.id}:industry">${esc(c.industry || '')}</span></td>
-      <td class="num mono">${S.contacts.filter(x => x.company_id === c.id).length}</td><td class="num mono">${money(openValue(c))}</td>
+      <td class="num mono">${S.peopleAt.get(c.id) || 0}</td><td class="num mono">${money(openValue(c))}</td>
       <td class="muted">${esc((c.website || '').replace(/^https?:\/\//, ''))}</td><td class="mono muted">${esc(c.phone || '')}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td></td><td>Count <b>${rows.length}</b></td><td colspan="5"></td></tr></tfoot></table>`
     : `<div class="empty">No companies match. Add one with <b>+ New company</b>.</div>`;
@@ -430,10 +448,13 @@ function renderTasks() {
     <td>${t.contact_name ? `<span class="person"><span class="av">${esc(initials(t.contact_name))}</span>${esc(t.contact_name)}</span>` : ''}</td>
     <td class="muted" style="max-width:280px;overflow:hidden;text-overflow:ellipsis">${esc(t.notes || '')}</td></tr>`;
   let body = '';
+  const ordered = groups.flatMap(([, fn]) => rows.filter(fn)); const drawn = new Set(capped(ordered).map(t => t.id));
   for (const [name, fn] of groups) {
     const g = rows.filter(fn); if (!g.length) continue;
-    body += `<tr class="group"><td></td><td colspan="5"><b class="${name === 'Overdue' ? 'late' : ''}">${name}</b><span class="mono muted">${g.length}</span></td></tr>` + g.map(line).join('');
+    const shownRows = g.filter(t => drawn.has(t.id)); if (!shownRows.length) continue;
+    body += `<tr class="group"><td></td><td colspan="5"><b class="${name === 'Overdue' ? 'late' : ''}">${name}</b><span class="mono muted">${g.length}</span></td></tr>` + shownRows.map(line).join('');
   }
+  body += moreRow(ordered, 5);
   $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th>✓</th><th><span class="t">Aa</span>Task</th><th><span class="t">◷</span>Due</th><th><span class="t">$</span>Deal</th><th><span class="t">@</span>Person</th><th><span class="t">¶</span>Notes</th></tr></thead><tbody>${body}</tbody></table>`
     : `<div class="empty">${S.taskFilter === 'open' ? 'Nothing open. ' : ''}Add one with <b>+ New task</b>.</div>`;
 }
@@ -442,11 +463,11 @@ function renderActivity() {
   $('#toolbar').innerHTML = `<div class="toolbar">${seg('act-type', S.actType, [['', 'All'], ['call', 'Calls'], ['email', 'Email'], ['sms', 'SMS'], ['note', 'Notes']])}</div>`;
   const rows = S.acts.filter(a => !S.actType || a.type === S.actType).sort((a, b) => b.created_at.localeCompare(a.created_at));
   $('#body').innerHTML = rows.length ? `<table class="grid"><thead><tr><th></th><th><span class="t">¶</span>What</th><th><span class="t">▤</span>Type</th><th><span class="t">@</span>Person</th><th><span class="t">$</span>Deal</th><th><span class="t">◷</span>When</th></tr></thead>
-    <tbody>${rows.map(a => `<tr class="row"><td><button class="muted" title="Delete" data-act="del-act" data-id="${a.id}">✕</button></td>
+    <tbody>${capped(rows).map(a => `<tr class="row"><td><button class="muted" title="Delete" data-act="del-act" data-id="${a.id}">✕</button></td>
       <td style="white-space:normal;max-width:420px">${esc(a.body || '')}</td><td><span class="pill">${esc(a.type)}</span></td>
       <td>${a.contact_id ? `<a data-act="peek" data-kind="person" data-id="${a.contact_id}" style="cursor:pointer">${esc(a.contact_name || '')}</a>` : ''}</td>
       <td>${a.opportunity_id ? `<a class="muted" data-act="peek" data-kind="deal" data-id="${a.opportunity_id}" style="cursor:pointer">${esc(a.opportunity_name || '')}</a>` : ''}</td>
-      <td class="mono muted">${fmtDate(a.created_at)} · ${ago(daysSince(a.created_at))}</td></tr>`).join('')}</tbody></table>`
+      <td class="mono muted">${fmtDate(a.created_at)} · ${ago(daysSince(a.created_at))}</td></tr>`).join('')}${moreRow(rows, 5)}</tbody></table>`
     : `<div class="empty">No activity yet. Log calls, emails, and notes from a deal or a person.</div>`;
 }
 
@@ -588,7 +609,7 @@ async function savePeek() {
 
 /* ── Palette (Ctrl/Cmd+K) ──────────────────────────────────────────────────── */
 let palItems = [], palIdx = 0, palTimer;
-function openPal() { $('#veil').classList.add('on'); $('#pal').classList.add('on'); $('#pal-q').value = ''; runPal(''); setTimeout(() => $('#pal-q').focus(), 10); }
+function openPal() { $('#veil').classList.add('on'); $('#pal').classList.add('on'); $('#pal-q').value = ''; runPal('').catch(quiet); setTimeout(() => $('#pal-q').focus(), 10); }
 function closePal() { $('#veil').classList.remove('on'); $('#pal').classList.remove('on'); }
 async function runPal(q) {
   const cmds = [['+', 'New deal', 'command', () => openPeek('deal', null, { pipeline_id: S.pipelineId, stage_id: pipeline().stages[0]?.id })], ['+', 'New person', 'command', () => openPeek('person')], ['+', 'New company', 'command', () => openPeek('company')], ['+', 'New task', 'command', () => openPeek('task')],
@@ -605,7 +626,7 @@ async function runPal(q) {
 function drawPal() {
   $('#pal-list').innerHTML = palItems.length ? palItems.map((it, i) => `<div class="pal-it ${i === palIdx ? 'on' : ''}" data-act="pal-run" data-i="${i}"><span class="mono muted">${it[0]}</span>${esc(it[1])}<span class="sub">${esc(it[2])}</span></div>`).join('') : '<div class="pal-sec">No matches</div>';
 }
-$('#pal-q').addEventListener('input', e => { clearTimeout(palTimer); palTimer = setTimeout(() => runPal(e.target.value), 150); });
+$('#pal-q').addEventListener('input', e => { clearTimeout(palTimer); palTimer = setTimeout(() => runPal(e.target.value).catch(quiet), 150); });
 $('#pal-q').addEventListener('keydown', e => {
   if (e.key === 'ArrowDown') { palIdx = Math.min(palIdx + 1, palItems.length - 1); drawPal(); e.preventDefault(); }
   if (e.key === 'ArrowUp') { palIdx = Math.max(palIdx - 1, 0); drawPal(); e.preventDefault(); }
@@ -613,10 +634,10 @@ $('#pal-q').addEventListener('keydown', e => {
 });
 
 /* ── Events (delegated) ────────────────────────────────────────────────────── */
-// api() has already shown the error as a toast; swallow it here so it doesn't
-// surface a second time as an unhandled promise rejection.
-const quiet = err => { if (!(err instanceof Error)) console.error(err); };
-function go(view, extra = {}) { Object.assign(S, { view, q: '', coldOnly: false, selected: new Set() }, extra); if (view !== 'deals') S.coldOnly = false; closePeek(); render(); }
+// API errors were already shown as a toast; swallow only those, so they don't surface a
+// second time as unhandled rejections. Anything else is a real bug and still gets logged.
+const quiet = err => { if (!err || !err.shown) console.error(err); };
+function go(view, extra = {}) { Object.assign(S, { view, q: '', coldOnly: false, selected: new Set(), showAll: false }, extra); if (view !== 'deals') S.coldOnly = false; closePeek(); render(); }
 let tt; function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast on' + (err ? ' err' : ''); clearTimeout(tt); tt = setTimeout(() => t.className = 'toast', 2600); }
 
 document.addEventListener('click', e => onClick(e).catch(quiet));
@@ -668,6 +689,7 @@ async function onClick(e) {
   }
   else if (a === 'del-view') { e.stopPropagation(); if (!confirm('Delete this saved view?')) return; await api('/api/saved-views/' + d.id, 'DELETE'); await refresh(); }
   else if (a === 'bulk-clear') { S.selected = new Set(); render(); }
+  else if (a === 'show-all') { S.showAll = true; render(); }
   else if (a === 'bulk-delete') {
     const n = S.selected.size; if (!confirm(`Delete ${n} record${n > 1 ? 's' : ''}? This can't be undone.`)) return;
     const path = d.entity === 'deals' ? '/api/opportunities/' : '/api/contacts/';
@@ -704,20 +726,28 @@ async function onChange(e) {
   else if (d.change === 'stage-name' && t.value.trim()) { await api(`/api/pipelines/${d.pid}/stages/${d.id}`, 'PUT', { name: t.value.trim() }); await refresh(); }
   else if (d.change === 'stage-color') { await api(`/api/pipelines/${d.pid}/stages/${d.id}`, 'PUT', { color: t.value }); await refresh(); }
 }
+let qTimer;
 document.addEventListener('input', e => {
-  if (e.target.dataset.input === 'q') {
-    S.q = e.target.value; const pos = e.target.selectionStart; render();
+  if (e.target.dataset.input !== 'q') return;
+  clearTimeout(qTimer);
+  qTimer = setTimeout(() => {
+    const f0 = document.querySelector('[data-input=q]'); if (!f0) return;
+    S.q = f0.value; S.showAll = false; const pos = f0.selectionStart; render();
     const f = document.querySelector('[data-input=q]'); if (f) { f.focus(); f.setSelectionRange(pos, pos); }
-  }
+  }, 180);
 });
 document.addEventListener('keydown', e => onKey(e).catch(quiet));
 async function onKey(e) {
   const t = e.target;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPal(); return; }
-  if (e.key === 'Escape') { if ($('#pal').classList.contains('on')) closePal(); else closePeek(); return; }
+  if (e.key === 'Escape' && !t.isContentEditable) { if ($('#pal').classList.contains('on')) closePal(); else closePeek(); return; }
   if (t.dataset && t.dataset.addStage && e.key === 'Enter' && t.value.trim()) { await api(`/api/pipelines/${t.dataset.addStage}/stages`, 'POST', { name: t.value.trim() }); await refresh(); return; }
   if (t.isContentEditable && e.key === 'Enter') { e.preventDefault(); t.blur(); }
-  if (t.isContentEditable && e.key === 'Escape') { t.blur(); }
+  if (t.isContentEditable && e.key === 'Escape') {
+    const [kind, id, field] = (t.dataset.edit || '').split(':'); const rec = KIND[kind]?.list().find(x => x.id === id);
+    if (rec) t.textContent = field === 'monetary_value' ? money(rec[field]) : (rec[field] ?? '');
+    t.blur();
+  }
 }
 /* Inline edits save on blur */
 document.addEventListener('focusout', e => onBlur(e).catch(quiet));
@@ -725,7 +755,11 @@ async function onBlur(e) {
   const t = e.target; if (!t.isContentEditable || !t.dataset.edit) return;
   const [kind, id, field] = t.dataset.edit.split(':'); const K = KIND[kind]; const rec = K.list().find(x => x.id === id); if (!rec) return;
   let val = t.textContent.trim();
-  if (field === 'monetary_value') val = parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+  if (field === 'monetary_value') {
+    const raw = val.replace(/[$,\s]/g, '');
+    if (!/^\d+(\.\d{1,2})?$/.test(raw)) { toast('Enter an amount like 1500 or 1,500.50', true); t.textContent = money(rec[field]); return; }
+    val = parseFloat(raw);
+  }
   if (val === rec[field] || (field === 'monetary_value' && val === +rec[field])) { if (field === 'monetary_value') t.textContent = money(val); return; }
   if ((field === 'name' || field === 'title') && !val) { toast('That field can’t be empty', true); t.textContent = rec[field]; return; }
   try { await api(`${K.path}/${id}`, 'PUT', { [field]: val }); toast('Saved'); } catch (err) { /* toast shown */ }

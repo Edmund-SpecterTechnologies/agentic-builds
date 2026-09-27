@@ -16,7 +16,7 @@ Open [`index.html`](index.html) to click through them. Each is a single self-con
 | 5 | [**Pocket**](5-pocket/index.html) | What if the owner runs the business from a truck? | Mobile field-service CRMs |
 
 **Ledger was chosen and built.** It is now the real interface in [`../crm/`](../crm/), wired to the
-API and covered by a 24-step browser check. The mockup here is the prototype it grew from.
+API and covered by a 27-step browser check. The mockup here is the prototype it grew from.
 
 ## What the research said
 
