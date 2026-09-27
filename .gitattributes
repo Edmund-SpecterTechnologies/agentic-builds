@@ -1,0 +1,5 @@
+# Windows batch files need CRLF or cmd.exe can mis-jump on goto labels;
+# shell scripts need LF or sh chokes on the carriage returns.
+*.bat text eol=crlf
+*.sh  text eol=lf
+* text=auto
