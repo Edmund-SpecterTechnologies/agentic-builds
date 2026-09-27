@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,7 +13,14 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .db import get_db, init_db
 from .routers import contacts, companies, pipelines, opportunities, activities, tasks, saved_views
 
-app = FastAPI(title="Specter CRM")
+@asynccontextmanager
+async def lifespan(app):
+    init_db()
+    _seed_default_pipeline()
+    yield
+
+
+app = FastAPI(title="Specter CRM", lifespan=lifespan)
 
 # ── Local-only request guards ─────────────────────────────────────────────────
 # The CRM has no login because it only listens on 127.0.0.1. Two browser attacks
@@ -65,12 +73,6 @@ DEFAULT_STAGES = [
     ("Won",            "#10B981"),
     ("Lost",           "#EF4444"),
 ]
-
-
-@app.on_event("startup")
-async def startup():
-    init_db()
-    _seed_default_pipeline()
 
 
 def _seed_default_pipeline():

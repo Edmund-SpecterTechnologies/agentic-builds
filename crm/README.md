@@ -141,6 +141,9 @@ A third review, run as repeated passes until only minor issues remained, found:
 - **It slowed down with volume.** With 3,000 deals, opening the table took 1.2 seconds and each
   keystroke in the filter froze the page for about half a second. Indexing once per load, drawing
   500 rows at a time, and waiting for a pause in typing brought those to 0.19 seconds and 9 ms.
+- **Grey text failed accessibility contrast.** The muted grey used for labels, dates, and company
+  names measured 3.7:1 against white, under the WCAG AA minimum of 4.5:1. It's now 5.1:1, with the
+  faintest grey kept for decoration only.
 
 ## Tests
 
@@ -173,6 +176,8 @@ and the UI check fails on an already-used database.
   status set by hand in the record panel.
 - "Going cold" uses a fixed 7-day threshold.
 - The board scrolls sideways once a pipeline has more stages than fit on screen.
+- It's built for desktop screens. Below about 1,000 pixels wide, the sidebar leaves the tables little
+  room, and on a phone it isn't usable.
 - The page loads up to 5,000 records of each type and draws 500 rows at a time (with "Show all"),
   which keeps a 3,000-deal table under a quarter of a second to switch to. Counts and totals always
   cover every loaded row.

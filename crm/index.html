@@ -12,7 +12,7 @@
   :root {
     --paper: #ffffff; --wash: #f7f7f5; --hover: #f2f2ef; --sel: #eef2ff;
     --rule: #e8e8e4; --rule-strong: #d6d6d0;
-    --ink: #171716; --ink-2: #4a4a46; --ink-3: #85857f; --ink-4: #b4b4ae;
+    --ink: #171716; --ink-2: #4a4a46; --ink-3: #6e6e68; --ink-4: #b4b4ae; /* ink-3 passes WCAG AA (4.5:1+) on every background; ink-4 is for decoration only */
     --focus: #1d4ed8; --cold: #c2410c; --ok: #15803d; --bad: #b91c1c;
     --sans: ui-sans-serif, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
@@ -112,7 +112,7 @@
   .av { width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: #fff; display: inline-grid; place-items: center; font: 600 9px var(--sans); flex: 0 0 auto; }
   .cold { color: var(--cold); font-weight: 500; }
   .late { color: var(--bad); font-weight: 500; }
-  .none { color: var(--ink-4); font-style: italic; }
+  .none { color: var(--ink-3); font-style: italic; }
   .pill { font: 11px var(--mono); border: 1px solid var(--rule-strong); border-radius: 999px; padding: 1px 7px; color: var(--ink-2); background: var(--wash); }
   .pill.won { color: var(--ok); border-color: #bbe5c8; background: #f0fbf3; }
   .pill.lost { color: var(--bad); border-color: #f3c4c4; background: #fdf3f3; }
@@ -156,7 +156,7 @@
   .tl-item { position: relative; padding: 0 0 14px; }
   .tl-item::before { content: ""; position: absolute; left: -18px; top: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--paper); border: 1.5px solid var(--ink); }
   .tl-item .m { font: 11px var(--mono); color: var(--ink-3); display: flex; justify-content: space-between; }
-  .tl-item .m button { color: var(--ink-4); } .tl-item .m button:hover { color: var(--bad); }
+  .tl-item .m button { color: var(--ink-3); } .tl-item .m button:hover { color: var(--bad); }
   .composer { border: 1px solid var(--rule-strong); border-radius: 6px; padding: 8px; margin-top: 8px; }
   .composer:focus-within { border-color: var(--focus); }
   .composer textarea { width: 100%; border: 0; outline: none; resize: vertical; min-height: 44px; }
