@@ -14,7 +14,6 @@ tools that took manual work off analysts.
 | | What it is | Why it's interesting |
 |---|---|---|
 | [**crm/**](crm/) | A full-stack local CRM (FastAPI, SQLite, plain JavaScript) with fictional demo data | Built with Claude Code. The interface was picked from five prototyped designs. Includes localhost attack defences, tested by running each attack at the app, and API and browser checks you can run. |
-| [**claude-code-web-client/**](claude-code-web-client/) | A browser chat UI for Claude Code, built for non-technical users | Streaming over WebSocket from the Claude Agent SDK. A security review caught a drive-by remote-code-execution path before it shipped. |
 | [**case-studies/**](case-studies/) | Three write-ups from the private workspace | What went wrong with LLM systems in real use, and what fixed it. |
 | [**design-options/**](design-options/) | Five clickable CRM design prototypes | How the CRM's interface was chosen: research first, then five directions that each answer a different question about what a CRM is for. |
 
@@ -53,10 +52,9 @@ because something went wrong without it.
 
 ## Running the code
 
-Each folder has its own README with setup steps. Both apps are local-only by design. Read the
-security section in each before running them anywhere but your own machine.
+Setup steps, the security model, and the tests are in [crm/README.md](crm/README.md). The CRM is
+local-only by design, so read its security section before running it anywhere but your own machine.
 
 ## License
 
-MIT. See [LICENSE](LICENSE). The vendored JavaScript libraries keep their own licenses (noted in
-[claude-code-web-client/README.md](claude-code-web-client/README.md)).
+MIT. See [LICENSE](LICENSE).
