@@ -22,7 +22,8 @@ something (stage colours, deals going cold, overdue tasks). Numbers are monospac
 ## What it does
 
 - **Tables you edit in place.** Click a deal's name or value and type. Change a stage from its
-  dropdown. Rows group by stage with running counts and totals, and the footer sums what's on screen.
+  dropdown. Rows group by stage with running counts and totals, and the footer totals every row that
+  matches the current filter.
 - **A record panel instead of page loads.** Open any deal, person, company, or task in a side panel
   to edit every field, see related records, and log calls, emails, texts, and notes on its timeline.
 - **Every deal shows its next step and its last touch.** An open deal untouched for 7 days is
@@ -93,6 +94,10 @@ Older versions parse them, and the dependency pin allows older versions, so the 
 regardless. Both were tested by sending each attack at the running app. The guards live at the top
 of `server.py`.
 
+Stored text is HTML-escaped before it reaches the page, and fields the page styles or filters on
+(deal and task status, contact status, activity type) accept only their known values; anything else
+is refused with a 422.
+
 Hosting it for multiple users would need real authentication, per-user data, and HTTPS, which are
 deliberately out of scope here.
 
@@ -125,6 +130,18 @@ error also escaped as an unhandled rejection. The board's Won filter still showe
 unchecked. It also found that the launcher never offered demo data, so a first run showed an
 empty CRM with no hint why.
 
+A third review, run as repeated passes until only minor issues remained, found:
+
+- **A stored-script hole.** A deal's status went into the page unescaped, and the API accepted any
+  text there. It is now escaped, and the API only accepts known values.
+- **Clicking in and out of a value rounded away its cents** ($1,497.50 saved as $1,498), and typing
+  letters saved $0. Values now keep their cents, and non-numbers are refused.
+- **The error handling from the second review swallowed real bugs too,** which also blinded the
+  browser check to them. Only errors already shown to the user are swallowed now.
+- **It slowed down with volume.** With 3,000 deals, opening the table took 1.2 seconds and each
+  keystroke in the filter froze the page for about half a second. Indexing once per load, drawing
+  500 rows at a time, and waiting for a pause in typing brought those to 0.19 seconds and 9 ms.
+
 ## Tests
 
 Two checks in `crm/tests/`, each run against a server on a **freshly seeded** demo database (they
@@ -138,7 +155,8 @@ python crm/tests/ui_check.py       # pip install playwright && playwright instal
 ```
 
 - **`api_check.py`** calls every endpoint, including each review fix: status following Won/Lost,
-  renames propagating, blank links unlinking, bad references returning 400, and both attack guards.
+  renames propagating, blank links unlinking, bad references returning 400, both attack guards, and
+  closed value sets (an HTML payload sent as a deal status is refused).
 - **`ui_check.py`** drives a real browser through 27 steps with every non-local request blocked:
   every view, inline edits, stage changes, the record panel, logging activity, creating and
   unlinking records, board drag-and-drop into Won, bulk moves, tasks, Ctrl+K, saved views, pipeline
