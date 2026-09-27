@@ -271,6 +271,23 @@ with sync_playwright() as p:
         assert cell.inner_text() == "$997.50", cell.inner_text()
     step("Escape cancels an inline edit", t_escape)
 
+    def t_keyboard():
+        pg.reload()
+        pg.wait_for_timeout(900)
+        for _ in range(60):
+            pg.keyboard.press("Tab")
+            if pg.evaluate("() => (document.activeElement.innerText || '').trim().startsWith('People')"):
+                break
+        else:
+            raise AssertionError("People not reachable with Tab")
+        pg.keyboard.press("Enter")
+        pg.wait_for_timeout(500)
+        assert pg.locator("h1").inner_text() == "People", pg.locator("h1").inner_text()
+        invisible = pg.evaluate("""() => [...document.querySelectorAll('button, a[tabindex], div[tabindex]')]
+            .filter(el => { el.focus(); return document.activeElement === el && getComputedStyle(el).opacity === '0'; }).length""")
+        assert invisible == 0, f"{invisible} focusable elements are invisible when focused"
+    step("the sidebar works from the keyboard, and focus is never invisible", t_keyboard)
+
     def t_delete():
         side("Deals")
         pg.get_by_role("button", name="All", exact=True).click()

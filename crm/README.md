@@ -144,6 +144,10 @@ A third review, run as repeated passes until only minor issues remained, found:
 - **Grey text failed accessibility contrast.** The muted grey used for labels, dates, and company
   names measured 3.7:1 against white, under the WCAG AA minimum of 4.5:1. It's now 5.1:1, with the
   faintest grey kept for decoration only.
+- **The sidebar couldn't be reached from the keyboard.** Its items were links without an `href`, which
+  Tab skips, and the row "Open" buttons were invisible when focused. Every clickable item now takes
+  focus, Enter or Space activates it, and focus is always visible.
+- **A list that hit the 5,000-record load limit looked complete.** It now says so on screen.
 
 ## Tests
 
@@ -160,12 +164,12 @@ python crm/tests/ui_check.py       # pip install playwright && playwright instal
 - **`api_check.py`** calls every endpoint, including each review fix: status following Won/Lost,
   renames propagating, blank links unlinking, bad references returning 400, both attack guards, and
   closed value sets (an HTML payload sent as a deal status is refused).
-- **`ui_check.py`** drives a real browser through 27 steps with every non-local request blocked:
+- **`ui_check.py`** drives a real browser through 28 steps with every non-local request blocked:
   every view, inline edits, stage changes, the record panel, logging activity, creating and
   unlinking records, board drag-and-drop into Won, bulk moves, tasks, Ctrl+K, saved views, pipeline
   settings, reports, deletion, and three regressions from review (cents surviving an edit, letters
-  refused in a value cell, Escape cancelling). It fails on any console error or failed request, not
-  only on a failed step. The regression steps were checked to fail against the page before the fix.
+  refused in a value cell, Escape cancelling), and keyboard access. It fails on any console error or
+  failed request, not only on a failed step. The regression steps were checked to fail against the page before the fix.
 
 Both exit non-zero on failure. That was checked, not assumed: both fail with no server running,
 and the UI check fails on an already-used database.
