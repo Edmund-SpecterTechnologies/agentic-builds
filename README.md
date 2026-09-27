@@ -14,7 +14,7 @@ tools that took manual work off analysts.
 | | What it is | Why it's interesting |
 |---|---|---|
 | [**crm/**](crm/) | A full-stack local CRM (FastAPI, SQLite, plain JavaScript) with fictional demo data | Built with Claude Code. The interface was picked from five prototyped designs. Includes localhost attack defences, tested by running each attack at the app, and API and browser checks you can run. |
-| [**case-studies/**](case-studies/) | Three write-ups from the private workspace | What went wrong with LLM systems in real use, and what fixed it. |
+| [**case-studies/**](case-studies/) | Four write-ups from the private workspace and a client build | What went wrong with LLM systems in real use, and what fixed it. |
 | [**design-options/**](design-options/) | Five clickable CRM design prototypes | How the CRM's interface was chosen: research first, then five directions that each answer a different question about what a CRM is for. |
 
 ### Case studies
@@ -27,6 +27,9 @@ tools that took manual work off analysts.
 3. [**A validator tested only by its author fails open.**](case-studies/03-a-validator-tested-only-by-its-author.md)
    A lead-research pipeline that keeps the model's role small, and the verifier that disproved its
    first batch anyway.
+4. [**The bot said it would stop. That isn't evidence it did.**](case-studies/04-the-bot-said-it-would-stop.md)
+   An AI texting bot whose reply and actions came from separate layers and disagreed, why opt-out
+   tests assert on stored state, and the passing test that found a race nobody was looking for.
 
 ## How I work with coding agents
 
