@@ -21,7 +21,6 @@ jobs:
   crm-api:
     runs-on: ubuntu-latest
     env:
-      CRM_DB_PATH: ${{ runner.temp }}/demo.db
       CRM_PORT: "8090"
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +28,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r crm/requirements.txt
+      - name: Point the CRM at a temporary database
+        run: echo "CRM_DB_PATH=$RUNNER_TEMP/demo.db" >> "$GITHUB_ENV"
       - name: Seed a fresh demo database
         run: python -m crm.seed_demo
       - name: Start the CRM
