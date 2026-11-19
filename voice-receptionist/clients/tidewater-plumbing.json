@@ -1,0 +1,11 @@
+{
+  "business_name": "Tidewater Plumbing",
+  "trade": "plumbing",
+  "service_area": "Pinellas County",
+  "hours": "Monday to Friday, 8 AM to 5 PM",
+  "timezone": "America/New_York",
+  "emergency_number": "+17275550199",
+  "emergency_signs": "active leaks or flooding, a burst pipe, sewage backing up, no water at all, or a gas smell",
+  "services": "drain cleaning, leak repair, water heater repair and replacement, fixture installs, and sewer camera inspections",
+  "faq": "The service call fee is $89 and is waived if the customer goes ahead with the repair. We do not service commercial buildings."
+}

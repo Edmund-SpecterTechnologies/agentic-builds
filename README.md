@@ -1,5 +1,7 @@
 # Agentic builds
 
+[![tests](https://github.com/Edmund-SpecterTechnologies/agentic-builds/actions/workflows/tests.yml/badge.svg)](https://github.com/Edmund-SpecterTechnologies/agentic-builds/actions/workflows/tests.yml)
+
 Work I've built with AI coding agents, mostly Claude Code, while running an AI automation
 consultancy. The code here is the part that can be public. The case studies cover the part that
 can't: a private workspace that runs the business's data collection, research, and client builds.
@@ -14,6 +16,7 @@ tools that took manual work off analysts.
 | | What it is | Why it's interesting |
 |---|---|---|
 | [**crm/**](crm/) | A full-stack local CRM (FastAPI, SQLite, plain JavaScript) with fictional demo data | Built with Claude Code. The interface was picked from five prototyped designs. Includes localhost attack defences, tested by running each attack at the app, and API and browser checks you can run. |
+| [**voice-receptionist/**](voice-receptionist/) | An AI phone receptionist backend for GoHighLevel: Vapi booking tools, post-call sync, and per-client assistant configs | Built around failure: every GHL write is recorded per step, so retries never double-book or double-text, and a daily check catches calls whose webhook never arrived. 37 offline tests against a fake GHL that fails on cue. A reference build, not yet run for a client. |
 | [**case-studies/**](case-studies/) | Four write-ups from the private workspace and a client build | What went wrong with LLM systems in real use, and what fixed it. |
 | [**design-options/**](design-options/) | Five clickable CRM design prototypes | How the CRM's interface was chosen: research first, then five directions that each answer a different question about what a CRM is for. |
 
@@ -55,7 +58,9 @@ because something went wrong without it.
 
 ## Running the code
 
-Setup steps, the security model, and the tests are in [crm/README.md](crm/README.md). The CRM is
+Every push runs the receptionist's tests and the CRM's API check in GitHub Actions. Setup steps, the
+security model, and the tests are in [crm/README.md](crm/README.md) and
+[voice-receptionist/README.md](voice-receptionist/README.md). The CRM is
 local-only by design, so read its security section before running it anywhere but your own machine.
 
 ## License

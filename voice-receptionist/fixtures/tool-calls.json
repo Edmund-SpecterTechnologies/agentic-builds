@@ -1,0 +1,17 @@
+{
+  "message": {
+    "type": "tool-calls",
+    "timestamp": 1795446100000,
+    "call": {
+      "id": "call_demo_0001",
+      "customer": { "number": "+17275550142" }
+    },
+    "toolCallList": [
+      {
+        "id": "toolu_check_1",
+        "type": "function",
+        "function": { "name": "check_availability", "arguments": {} }
+      }
+    ]
+  }
+}

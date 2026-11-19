@@ -1,0 +1,59 @@
+{
+  "name": "{{business_name}} receptionist",
+  "firstMessage": "Thanks for calling {{business_name}}. How can I help?",
+  "model": {
+    "provider": "openai",
+    "model": "gpt-4o",
+    "temperature": 0.3,
+    "messages": [{ "role": "system", "content": "{{SYSTEM_PROMPT}}" }],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "check_availability",
+          "description": "Get the next open appointment times. Optionally pass the day the caller asked for.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "description": "Day the caller wants, as YYYY-MM-DD. Omit for the next opening." }
+            }
+          }
+        },
+        "server": { "url": "{{SERVER_URL}}", "credentialId": "{{CREDENTIAL_ID}}" }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "book_appointment",
+          "description": "Book the caller into a time returned by check_availability.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "start_time": { "type": "string", "description": "Exact value from check_availability's slots." },
+              "name": { "type": "string", "description": "Caller's full name." },
+              "service": { "type": "string", "description": "What the visit is for." }
+            },
+            "required": ["start_time"]
+          }
+        },
+        "server": { "url": "{{SERVER_URL}}", "credentialId": "{{CREDENTIAL_ID}}" }
+      },
+      {
+        "type": "transferCall",
+        "destinations": [
+          {
+            "type": "number",
+            "number": "{{emergency_number}}",
+            "description": "On-call technician, for emergencies only"
+          }
+        ],
+        "messages": [
+          { "type": "request-start", "content": "Connecting you to our on-call technician now." },
+          { "type": "request-failed", "content": "I couldn't reach the technician. They'll call you back within 10 minutes." }
+        ]
+      }
+    ]
+  },
+  "server": { "url": "{{SERVER_URL}}", "credentialId": "{{CREDENTIAL_ID}}" },
+  "serverMessages": ["end-of-call-report", "status-update", "tool-calls"]
+}

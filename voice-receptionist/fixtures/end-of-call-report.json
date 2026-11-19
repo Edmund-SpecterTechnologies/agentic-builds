@@ -1,0 +1,29 @@
+{
+  "message": {
+    "type": "end-of-call-report",
+    "timestamp": 1795446000000,
+    "endedReason": "customer-ended-call",
+    "startedAt": "2026-11-23T14:00:05.000Z",
+    "endedAt": "2026-11-23T14:03:41.000Z",
+    "call": {
+      "id": "call_demo_0001",
+      "type": "inboundPhoneCall",
+      "customer": { "number": "+17275550142" }
+    },
+    "customer": { "number": "+17275550142" },
+    "analysis": {
+      "summary": "Caller has a slow kitchen drain, not an emergency. Booked a drain cleaning visit for Monday at 10 AM."
+    },
+    "artifact": {
+      "transcript": "AI: Thanks for calling Tidewater Plumbing, this is the after-hours line. How can I help?\nUser: Hi, my kitchen sink is draining really slowly.\nAI: Is any water overflowing or leaking onto the floor right now?\nUser: No, it's just slow.\nAI: Okay. I have Monday, November 23 at 10 AM or Tuesday, November 24 at 9 AM. Which works better?\nUser: Monday at ten.\nAI: You're booked for Monday, November 23 at 10 AM. You'll get a text confirmation.",
+      "messages": [
+        { "role": "bot", "message": "Thanks for calling Tidewater Plumbing, this is the after-hours line. How can I help?" },
+        { "role": "user", "message": "Hi, my kitchen sink is draining really slowly." }
+      ],
+      "recording": {
+        "stereoUrl": "https://storage.example.com/recordings/call_demo_0001-stereo.wav",
+        "mono": { "combinedUrl": "https://storage.example.com/recordings/call_demo_0001-mono.wav" }
+      }
+    }
+  }
+}
